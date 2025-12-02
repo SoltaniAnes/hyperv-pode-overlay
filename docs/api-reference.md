@@ -131,8 +131,6 @@ The `force` parameter can be provided either as a query parameter or in the requ
 If `force` is not provided or is `false`, the VM will be gracefully shut down.
 If `force` is `true`, the VM will be forcefully stopped.
 
-**Note:** When `force` is `false` or not provided, the shutdown integration service must be available and enabled on the VM. If it is not, a 422 error will be returned.
-
 Response 200:
 { "stopped": "vm1" }
 
@@ -141,12 +139,6 @@ Response 404:
 
 Response 409:
 { "error": "VM is already stopped" }
-
-Response 422:
-{
-  "error": "Shutdown integration service not available or not enabled",
-  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un arrêt forcé."
-}
 
 Response 500:
 {
@@ -179,50 +171,6 @@ Response 404:
 Response 500:
 {
   "error": "Failed to restart VM",
-  "detail": "Hyper-V exception message"
-}
-
----------------------------------------
-
-POST /vms/:name/suspend
-Suspend a virtual machine.
-
-This operation is **idempotent**.
-
-Response 200:
-{ "suspended": "vm1" }
-
-Response 404:
-{ "error": "VM not found" }
-
-Response 409:
-{ "error": "VM is already suspended" }
-
-Response 500:
-{
-  "error": "Failed to suspend VM",
-  "detail": "Hyper-V exception message"
-}
-
----------------------------------------
-
-POST /vms/:name/resume
-Resume a suspended virtual machine.
-
-This operation is **idempotent**.
-
-Response 200:
-{ "resumed": "vm1" }
-
-Response 404:
-{ "error": "VM not found" }
-
-Response 409:
-{ "error": "VM is already running" }
-
-Response 500:
-{
-  "error": "Failed to resume VM",
   "detail": "Hyper-V exception message"
 }
 
@@ -324,8 +272,6 @@ DELETE /vms      = idempotent (missing VM → 404)
 POST /vms/:name/start = idempotent (already running VM → 200 OK)
 POST /vms/:name/stop = idempotent (already stopped VM → 409 Conflict)
 POST /vms/:name/restart = idempotent (stopped VM → starts, running VM → restarts)
-POST /vms/:name/suspend = idempotent (already suspended VM → 409 Conflict)
-POST /vms/:name/resume = idempotent (already running VM → 409 Conflict)
 
 POST /switches   = idempotent (existing switch → 200 OK)
 DELETE /switches = idempotent (missing switch → 404)

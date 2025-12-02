@@ -155,17 +155,6 @@ function Stop-HvoVm {
                 Stop-VM -Name $Name -Force -ErrorAction Stop
             }
             else {
-                # Vérifier la présence et l'activation du service d'intégration d'arrêt
-                $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
-                
-                if (-not $shutdownService) {
-                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM '$Name'. Utilisez le paramètre 'force' pour un arrêt forcé."
-                }
-                
-                if (-not $shutdownService.Enabled) {
-                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: Le service d'intégration d'arrêt (Shutdown) n'est pas activé pour la VM '$Name'. Utilisez le paramètre 'force' pour un arrêt forcé."
-                }
-                
                 Stop-VM -Name $Name -ErrorAction Stop
             }
             return @{
@@ -233,92 +222,6 @@ function Restart-HvoVm {
         }
 
         Write-Host "Restart-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
-        throw
-    }
-}
-
-function Suspend-HvoVm {
-    param(
-        [Parameter(Mandatory)] [string] $Name
-    )
-    try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
-        if (-not $vm) {
-            return $null
-        }
-
-        $vmState = $vm.State.ToString()
-        
-        if ($vmState -eq "Paused") {
-            return @{
-                Suspended = $false
-                AlreadySuspended = $true
-                Name = $vm.Name
-            }
-        }
-
-        if ($vmState -eq "Running") {
-            Suspend-VM -Name $Name -ErrorAction Stop
-            return @{
-                Suspended = $true
-                AlreadySuspended = $false
-                Name = $vm.Name
-            }
-        }
-
-        throw "VM is in an invalid state for suspending: $vmState"
-    }
-    catch {
-        $msg = $_.Exception.Message
-        if ($msg -match 'not found|does not exist|Cannot find') {
-            return $null
-        }
-
-        Write-Host "Suspend-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
-        throw
-    }
-}
-
-function Resume-HvoVm {
-    param(
-        [Parameter(Mandatory)] [string] $Name
-    )
-    try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
-        if (-not $vm) {
-            return $null
-        }
-
-        $vmState = $vm.State.ToString()
-        
-        if ($vmState -eq "Running") {
-            return @{
-                Resumed = $false
-                AlreadyRunning = $true
-                Name = $vm.Name
-            }
-        }
-
-        if ($vmState -eq "Paused") {
-            Resume-VM -Name $Name -ErrorAction Stop
-            return @{
-                Resumed = $true
-                AlreadyRunning = $false
-                Name = $vm.Name
-            }
-        }
-
-        throw "VM is in an invalid state for resuming: $vmState"
-    }
-    catch {
-        $msg = $_.Exception.Message
-        if ($msg -match 'not found|does not exist|Cannot find') {
-            return $null
-        }
-
-        Write-Host "Resume-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
         throw
     }
 }

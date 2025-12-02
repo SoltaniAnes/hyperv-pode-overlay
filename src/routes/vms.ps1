@@ -301,4 +301,45 @@ function global:Add-HvoVmRoutes {
         }
     }
 
+
+    #
+    # POST /vms/:name/restart
+    #
+    Add-PodeRoute -Method Post -Path '/vms/:name/restart' -ScriptBlock {
+        try {
+            $name = $WebEvent.Parameters['name']
+            
+            # Extract force parameter from query or body
+            $force = $false
+            if ($WebEvent.Query['force'] -eq "true") {
+                $force = $true
+            }
+            else {
+                $b = Get-HvoJsonBody
+                if ($b -and $b.force -eq $true) {
+                    $force = $true
+                }
+            }
+            
+            $result = Restart-HvoVm -Name $name -Force:$force
+
+            if (-not $result) {
+                Write-PodeJsonResponse -StatusCode 404 -Value @{
+                    error = "VM not found"
+                }
+                return
+            }
+
+            Write-PodeJsonResponse -Value @{
+                restarted = $result.Name
+            }
+        }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error = "Failed to restart VM"
+                detail = $_.Exception.Message
+            }
+        }
+    }
+
 }
