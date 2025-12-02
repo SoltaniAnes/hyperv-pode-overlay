@@ -85,6 +85,49 @@ function Get-HvoVms {
     }
 }
 
+function Start-HvoVm {
+    param(
+        [Parameter(Mandatory)] [string] $Name
+    )
+    try {
+        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        
+        if (-not $vm) {
+            return $null
+        }
+
+        $vmState = $vm.State.ToString()
+        
+        if ($vmState -eq "Running") {
+            return @{
+                Started = $false
+                AlreadyRunning = $true
+                Name = $vm.Name
+            }
+        }
+
+        if ($vmState -eq "Off") {
+            Start-VM -Name $Name -ErrorAction Stop
+            return @{
+                Started = $true
+                AlreadyRunning = $false
+                Name = $vm.Name
+            }
+        }
+
+        throw "VM is in an invalid state for starting: $vmState"
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if ($msg -match 'not found|does not exist|Cannot find') {
+            return $null
+        }
+
+        Write-Host "Start-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        throw
+    }
+}
+
 function Remove-HvoVm {
     param(
         [Parameter(Mandatory)] [string] $Name,

@@ -101,4 +101,32 @@ function global:Add-HvoVmRoutes {
         }
     }
 
+
+    #
+    # POST /vms/:name/start
+    #
+    Add-PodeRoute -Method Post -Path '/vms/:name/start' -ScriptBlock {
+        try {
+            $name = $WebEvent.Parameters['name']
+            $result = Start-HvoVm -Name $name
+
+            if (-not $result) {
+                Write-PodeJsonResponse -StatusCode 404 -Value @{
+                    error = "VM not found"
+                }
+                return
+            }
+
+            Write-PodeJsonResponse -Value @{
+                started = $result.Name
+            }
+        }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error = "Failed to start VM"
+                detail = $_.Exception.Message
+            }
+        }
+    }
+
 }

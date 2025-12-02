@@ -99,6 +99,25 @@ Response 500:
 }
 
 ---------------------------------------
+
+POST /vms/:name/start
+Start a virtual machine.
+
+This operation is **idempotent**.
+
+Response 200:
+{ "started": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 500:
+{
+  "error": "Failed to start VM",
+  "detail": "Hyper-V exception message"
+}
+
+---------------------------------------
 SWITCH ENDPOINTS
 ---------------------------------------
 
@@ -193,6 +212,7 @@ IDEMPOTENCY RULES
 
 POST /vms        = idempotent (existing VM → 200 OK)
 DELETE /vms      = idempotent (missing VM → 404)
+POST /vms/:name/start = idempotent (already running VM → 200 OK)
 
 POST /switches   = idempotent (existing switch → 200 OK)
 DELETE /switches = idempotent (missing switch → 404)
