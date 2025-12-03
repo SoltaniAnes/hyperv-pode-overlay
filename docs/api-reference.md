@@ -286,7 +286,7 @@ IDEMPOTENCY RULES
 POST /vms        = idempotent (existing VM → 200 OK)
 DELETE /vms      = idempotent (missing VM → 404)
 POST /vms/:name/start = idempotent (already running VM → 200 OK)
-POST /vms/:name/stop = idempotent (already stopped VM → 409 Conflict)
+POST /vms/:name/stop = idempotent (already running VM → 200 OK)
 POST /vms/:name/restart = idempotent (stopped VM → starts, running VM → restarts)
 
 POST /switches   = idempotent (existing switch → 200 OK)
