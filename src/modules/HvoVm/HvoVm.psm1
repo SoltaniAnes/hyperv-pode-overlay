@@ -159,11 +159,11 @@ function Stop-HvoVm {
                 $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
                 
                 if (-not $shutdownService) {
-                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM '$Name'. Utilisez le paramètre 'force' pour un arrêt forcé."
+                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$Name'. Use the 'force' parameter for a forced shutdown."
                 }
                 
                 if (-not $shutdownService.Enabled) {
-                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: Le service d'intégration d'arrêt (Shutdown) n'est pas activé pour la VM '$Name'. Utilisez le paramètre 'force' pour un arrêt forcé."
+                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$Name'. Use the 'force' parameter for a forced shutdown."
                 }
                 
                 Stop-VM -Name $Name -ErrorAction Stop
