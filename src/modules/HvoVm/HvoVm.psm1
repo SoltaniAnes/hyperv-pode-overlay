@@ -339,8 +339,10 @@ function Resume-HvoVm {
             }
         }
 
+        if ($vmState -eq "Off") {
+            throw "Cannot resume VM '$Name' because it is stopped (Off). Resume is only applicable to paused VMs. To start a stopped VM, use Start-VM."
+        }
         throw "VM is in an invalid state for resuming: $vmState"
-    }
     catch {
         $msg = $_.Exception.Message
         if ($msg -match 'not found|does not exist|Cannot find') {
