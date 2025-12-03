@@ -115,7 +115,25 @@ function Start-HvoVm {
             }
         }
 
-        throw "VM is in an invalid state for starting: $vmState"
+        if ($vmState -eq "Paused") {
+            Resume-VM -Name $Name -ErrorAction Stop
+            return @{
+                Started = $true
+                Resumed = $true
+                Name = $vm.Name
+            }
+        }
+
+        if ($vmState -eq "Saved") {
+            Start-VM -Name $Name -ErrorAction Stop
+            return @{
+                Started = $true
+                Resumed = $false
+                Name = $vm.Name
+            }
+        }
+
+        throw "VM is in an invalid state for starting: $vmState. If the VM is in a transitional state (e.g., Starting, Stopping), please wait. For other states, use the appropriate endpoint (e.g., Resume for Paused)."
     }
     catch {
         $msg = $_.Exception.Message
