@@ -172,7 +172,7 @@ function global:Add-HvoVmRoutes {
         catch {
             $errorMessage = $_.Exception.Message
             
-            # Détecter les erreurs liées au service d'intégration d'arrêt
+            # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
                 # Extraire le message sans le préfixe
                 $detail = $errorMessage -replace '^[^:]+:\s*', ''
