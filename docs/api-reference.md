@@ -258,6 +258,58 @@ If Hyper-V fails:
 
 ---------------------------------------
 
+PUT /switches/:name
+Update an existing virtual switch.
+
+Only the "notes" field can be updated.
+All other properties (name, type, netAdapterName) are immutable in Hyper-V and require switch recreation.
+Operation is idempotent.
+
+Valid request body:
+{
+"notes": "Terraform-managed switch"
+}
+
+If no updatable fields are provided, the request is accepted but no changes are applied.
+
+Responses:
+
+200 OK — Switch updated
+{
+"updated": "LAN",
+"notes": "Terraform-managed switch"
+}
+
+200 OK — No change (notes already identical)
+{
+"updated": "LAN",
+"notes": "Terraform-managed switch"
+}
+
+404 Not Found
+{
+"error": "Switch not found"
+}
+
+400 Bad Request
+{
+"error": "Invalid JSON"
+}
+
+500 Internal Server Error
+{
+"error": "Failed to update switch",
+"detail": "Hyper-V message"
+}
+
+Notes:
+
+Only "notes" is updatable because Hyper-V does not support modifying type or network adapter after switch creation.
+
+Immutable fields should be handled by clients (e.g., Terraform marks them with ForceNew).
+
+---------------------------------------
+
 DELETE /switches/:name
 Delete a virtual switch.  
 Operation is **idempotent**.

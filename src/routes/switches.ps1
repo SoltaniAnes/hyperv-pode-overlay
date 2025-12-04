@@ -57,7 +57,8 @@ function global:Add-HvoSwitchRoutes {
             $result = New-HvoSwitch `
                 -Name $b.name `
                 -Type $b.type `
-                -NetAdapterName $b.netAdapterName
+                -NetAdapterName $b.netAdapterName`
+                -Notes  $b.notes
 
             if ($result.Exists) {
                 Write-PodeJsonResponse -StatusCode 200 -Value @{
@@ -77,6 +78,44 @@ function global:Add-HvoSwitchRoutes {
             }
         }
     }
+
+    #
+    # PUT /switches/:name
+    #
+    Add-PodeRoute -Method Put -Path '/switches/:name' -ScriptBlock {
+        try {
+            $name = $WebEvent.Parameters['name']
+            $body = Get-HvoJsonBody
+
+            if (-not $body) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
+
+            # Only pass fields that the user provided
+            $params = @{ Name = $name }
+
+            if ($body.notes) {
+                $params.Notes = $body.notes
+            }
+
+            $result = Set-HvoSwitch @params
+
+            if (-not $result.Updated) {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            Write-PodeJsonResponse -Value @{ updated = $result.Name }
+        }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update switch"
+                detail = $_.Exception.Message
+            }
+        }
+    }
+
 
 
     #
