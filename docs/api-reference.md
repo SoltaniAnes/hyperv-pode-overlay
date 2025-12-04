@@ -99,6 +99,98 @@ Response 500:
 }
 
 ---------------------------------------
+
+POST /vms/:name/start
+Start a virtual machine.
+
+This operation is **idempotent**.
+
+Response 200:
+{ "started": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 500:
+{
+  "error": "Failed to start VM",
+  "detail": "Hyper-V exception message"
+}
+
+---------------------------------------
+
+POST /vms/:name/stop
+Stop a virtual machine.
+
+This operation is **idempotent**.
+
+The `force` parameter can be provided either as a query parameter or in the request body:
+- Query parameter: `POST /vms/:name/stop?force=true`
+- Request body: `{ "force": true }`
+
+If `force` is not provided or is `false`, the VM will be gracefully shut down.
+If `force` is `true`, the VM will be forcefully stopped.
+
+**Note:** When `force` is `false` or not provided, the shutdown integration service must be available and enabled on the VM. If it is not, a 422 error will be returned.
+
+Response 200:
+{ "stopped": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 409:
+{ "error": "VM is already stopped" }
+
+Response 422:
+{
+  "error": "Shutdown integration service not available or not enabled",
+  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un arrêt forcé."
+}
+
+Response 500:
+{
+  "error": "Failed to stop VM",
+  "detail": "Hyper-V exception message"
+}
+
+---------------------------------------
+
+POST /vms/:name/restart
+Restart a virtual machine.
+
+This operation is **idempotent**.
+
+The `force` parameter can be provided either as a query parameter or in the request body:
+- Query parameter: `POST /vms/:name/restart?force=true`
+- Request body: `{ "force": true }`
+
+If `force` is not provided or is `false`, the VM will be gracefully restarted.
+If `force` is `true`, the VM will be forcefully restarted.
+
+**Note:** When `force` is `false` or not provided, the shutdown integration service must be available and enabled on the VM. If it is not, a 422 error will be returned.
+
+If the VM is already stopped, it will be started (idempotent behavior).
+
+Response 200:
+{ "restarted": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 422:
+{
+  "error": "Shutdown integration service not available or not enabled",
+  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un redémarrage forcé."
+}
+
+Response 500:
+{
+  "error": "Failed to restart VM",
+  "detail": "Hyper-V exception message"
+}
+
+---------------------------------------
 SWITCH ENDPOINTS
 ---------------------------------------
 
@@ -193,6 +285,9 @@ IDEMPOTENCY RULES
 
 POST /vms        = idempotent (existing VM → 200 OK)
 DELETE /vms      = idempotent (missing VM → 404)
+POST /vms/:name/start = idempotent (already running VM → 200 OK)
+POST /vms/:name/stop = idempotent (already running VM → 200 OK)
+POST /vms/:name/restart = idempotent (stopped VM → starts, running VM → restarts)
 
 POST /switches   = idempotent (existing switch → 200 OK)
 DELETE /switches = idempotent (missing switch → 404)
