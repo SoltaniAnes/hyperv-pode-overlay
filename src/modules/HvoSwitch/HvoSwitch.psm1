@@ -2,7 +2,8 @@ function New-HvoSwitch {
     param(
         [string] $Name,
         [ValidateSet('Internal', 'External', 'Private')] [string] $Type,
-        [string] $NetAdapterName
+        [string] $NetAdapterName,
+        [string] $Notes
     )
 
     $existing = Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
@@ -28,10 +29,47 @@ function New-HvoSwitch {
             $sw = New-VMSwitch -Name $Name -NetAdapterName $NetAdapterName -AllowManagementOS $true
         }
     }
+    
+    # Apply notes if provided
+    if ($Notes) {
+        Set-VMSwitch -Name $Name -Notes $Notes | Out-Null
+    }
 
     return @{
         Exists = $false
         Name   = $sw.Name
+    }
+}
+
+function Set-HvoSwitch {
+    param(
+        [Parameter(Mandatory)] [string] $Name,
+        [string] $Notes
+    )
+
+    try {
+        $sw = Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
+        if (-not $sw) {
+            return @{
+                Updated = $false
+                Error   = "Switch not found"
+            }
+        }
+
+        #
+        # Update "Notes" only (the only safe modifiable property)
+        #
+        if ($PSBoundParameters.ContainsKey("Notes")) {
+            Set-VMSwitch -Name $Name -Notes $Notes -ErrorAction Stop
+        }
+
+        return @{
+            Updated = $true
+            Name    = $Name
+        }
+    }
+    catch {
+        throw $_
     }
 }
 
