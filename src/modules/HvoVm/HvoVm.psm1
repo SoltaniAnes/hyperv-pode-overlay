@@ -9,6 +9,7 @@ function New-HvoVm {
         [string] $IsoPath
     )
    try{
+
      # If VM already exists → idempotent result
     $existing = Get-VM -Name $Name -ErrorAction SilentlyContinue
     if ($existing) {
@@ -51,9 +52,111 @@ function New-HvoVm {
         }
     }
     catch {
-        throw
+        throw $_
  }
 }
+
+function Set-HvoVm {
+    param(
+        [Parameter(Mandatory)] [string] $Name,
+        [int] $MemoryMB,
+        [int] $Vcpu,
+        [string] $SwitchName,
+        [string] $IsoPath
+    )
+
+    try {
+        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return @{ Updated = $false; Error = "VM not found" }
+        }
+
+        if ($vm.State -ne "Off") {
+            return @{
+                Updated = $false
+                Error   = "VM must be Off to update"
+                State   = $vm.State.ToString()
+            }
+        }
+
+        $changed = $false
+
+        #
+        # MEMORY — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("MemoryMB")) {
+            $currentMB = [math]::Round($vm.MemoryStartup / 1MB)
+            if ($currentMB -ne $MemoryMB) {
+                Set-VMMemory -VMName $Name -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # vCPU — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("Vcpu")) {
+            if ($vm.ProcessorCount -ne $Vcpu) {
+                Set-VMProcessor -VMName $Name -Count $Vcpu -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # SWITCH — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("SwitchName")) {
+            $currentNic = Get-VMNetworkAdapter -VMName $Name -ErrorAction SilentlyContinue
+            $currentSwitch = $currentNic?.SwitchName
+
+            if ($currentSwitch -ne $SwitchName) {
+                Get-VMNetworkAdapter -VMName $Name |
+                    Remove-VMNetworkAdapter -Confirm:$false -ErrorAction Stop
+
+                Add-VMNetworkAdapter -VMName $Name -SwitchName $SwitchName -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # ISO — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("IsoPath")) {
+
+            if (-not (Test-Path $IsoPath)) {
+                return @{ Updated = $false; Error = "ISO file not found"; Path = $IsoPath }
+            }
+
+            $currentIso = (Get-VMDvdDrive -VMName $Name -ErrorAction SilentlyContinue)?.Path
+
+            if ($currentIso -ne $IsoPath) {
+                Get-VMDvdDrive -VMName $Name | Remove-VMDvdDrive -ErrorAction Stop
+                Add-VMDvdDrive -VMName $Name -Path $IsoPath -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # No changes? → return idempotent response
+        #
+        if (-not $changed) {
+            return @{
+                Updated   = $false
+                Unchanged = $true
+                Name      = $Name
+            }
+        }
+
+        return @{
+            Updated = $true
+            Name    = $Name
+        }
+    }
+    catch {
+        throw $_
+    }
+}
+
 
 
 function Get-HvoVm {
@@ -343,6 +446,7 @@ function Resume-HvoVm {
             throw "Cannot resume VM '$Name' because it is stopped (Off). Resume is only applicable to paused VMs. To start a stopped VM, use Start-VM."
         }
         throw "VM is in an invalid state for resuming: $vmState"
+    }
     catch {
         $msg = $_.Exception.Message
         if ($msg -match 'not found|does not exist|Cannot find') {
@@ -353,6 +457,7 @@ function Resume-HvoVm {
         throw
     }
 }
+
 
 function Remove-HvoVm {
     param(

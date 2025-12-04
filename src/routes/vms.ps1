@@ -43,35 +43,104 @@ function global:Add-HvoVmRoutes {
     #
     # POST /vms
     #
+
     Add-PodeRoute -Method Post -Path '/vms' -ScriptBlock {
-    try {
-        $b = Get-HvoJsonBody
+        try {
+            $b = Get-HvoJsonBody
 
-        if (-not $b) {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
-            return
+            if (-not $b) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
+
+            $result = New-HvoVm @b
+
+            if ($result.Exists) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    exists = $result.Name
+                }
+            }
+            else {
+                Write-PodeJsonResponse -StatusCode 201 -Value @{
+                    created = $result.Name
+                }
+            }
         }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error = "Failed to create VM"
+                detail = $_.Exception.Message
+            }
+        }
+    }
 
-        $result = New-HvoVm @b
+    #
+    # PUT /vms/:name
+    #
 
-        if ($result.Exists) {
+    Add-PodeRoute -Method Put -Path '/vms/:name' -ScriptBlock {
+        try {
+            $name = $WebEvent.Parameters['name']
+            $body = Get-HvoJsonBody
+
+            if (-not $body) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
+
+            # Only pass parameters actually provided by the client
+            $params = @{ Name = $name }
+
+            if ($body.memoryMB)   { $params.MemoryMB   = $body.memoryMB }
+            if ($body.vcpu)       { $params.Vcpu       = $body.vcpu }
+            if ($body.switchName) { $params.SwitchName = $body.switchName }
+            if ($body.isoPath)    { $params.IsoPath    = $body.isoPath }
+
+            $result = Set-HvoVm @params
+
+            #
+            # Return 404 when VM does not exist
+            #
+            if ($result.Error -eq "VM not found") {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            #
+            # If no changes were needed -> idempotent behavior
+            #
+            if ($result.Updated -eq $false -and $result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    name      = $name
+                }
+                return
+            }
+
+            #
+            # If an update condition failed (e.g., VM running)
+            #
+            if ($result.Updated -eq $false -and $result.Error) {
+                Write-PodeJsonResponse -StatusCode 409 -Value $result
+                return
+            }
+
+            #
+            # Success: the VM was updated
+            #
             Write-PodeJsonResponse -StatusCode 200 -Value @{
-                exists = $result.Name
+                updated = $true
+                name    = $name
             }
         }
-        else {
-            Write-PodeJsonResponse -StatusCode 201 -Value @{
-                created = $result.Name
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update VM"
+                detail = $_.Exception.Message
             }
         }
     }
-    catch {
-        Write-PodeJsonResponse -StatusCode 500 -Value @{
-            error = "Failed to create VM"
-            detail = $_.Exception.Message
-        }
-    }
-}
+
 
 
     #
@@ -174,7 +243,7 @@ function global:Add-HvoVmRoutes {
             
             # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
-                # Extraire le message sans le préfixe
+                # Extract the message without the prefix
                 $detail = $errorMessage -replace '^[^:]+:\s*', ''
                 Write-PodeJsonResponse -StatusCode 422 -Value @{
                     error = "Shutdown integration service not available or not enabled"
@@ -226,9 +295,9 @@ function global:Add-HvoVmRoutes {
         catch {
             $errorMessage = $_.Exception.Message
             
-            # Détecter les erreurs liées au service d'intégration d'arrêt
+            # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
-                # Extraire le message sans le préfixe
+                # Extract the message without the prefix
                 $detail = $errorMessage -replace '^[^:]+:\s*', ''
                 Write-PodeJsonResponse -StatusCode 422 -Value @{
                     error = "Shutdown integration service not available or not enabled"
