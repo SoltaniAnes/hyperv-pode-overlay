@@ -9,6 +9,7 @@ function New-HvoVm {
         [string] $IsoPath
     )
    try{
+
      # If VM already exists → idempotent result
     $existing = Get-VM -Name $Name -ErrorAction SilentlyContinue
     if ($existing) {
@@ -51,8 +52,90 @@ function New-HvoVm {
         }
     }
     catch {
-        throw
+        throw $_
  }
+}
+
+function Set-HvoVm {
+    param(
+        [Parameter(Mandatory)] [string] $Name,
+        [int] $MemoryMB,
+        [int] $Vcpu,
+        [string] $SwitchName,
+        [string] $IsoPath
+    )
+
+    try {
+        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return @{
+                Updated = $false
+                Error   = "VM not found"
+            }
+        }
+
+        # VM must be Off
+        if ($vm.State -ne "Off") {
+            return @{
+                Updated = $false
+                Error   = "VM must be Off to update"
+                State   = $vm.State.ToString()
+            }
+        }
+
+        #
+        # Update Memory
+        #
+        if ($PSBoundParameters.ContainsKey("MemoryMB")) {
+            Set-VMMemory -VMName $Name -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
+        }
+
+        #
+        # Update vCPU
+        #
+        if ($PSBoundParameters.ContainsKey("Vcpu")) {
+            Set-VMProcessor -VMName $Name -Count $Vcpu -ErrorAction Stop
+        }
+
+        #
+        # Update Switch
+        #
+        if ($PSBoundParameters.ContainsKey("SwitchName")) {
+            # Remove old NICs
+            Get-VMNetworkAdapter -VMName $Name | Remove-VMNetworkAdapter -Confirm:$false -ErrorAction Stop
+
+            # Add new NIC
+            Add-VMNetworkAdapter -VMName $Name -SwitchName $SwitchName -ErrorAction Stop
+        }
+
+        #
+        # Update ISO
+        #
+        if ($PSBoundParameters.ContainsKey("IsoPath")) {
+
+            if (-not (Test-Path $IsoPath)) {
+                return @{
+                    Updated = $false
+                    Error   = "ISO file not found"
+                    Path    = $IsoPath
+                }
+            }
+
+            # Remove existing DVD drives
+            Get-VMDvdDrive -VMName $Name | Remove-VMDvdDrive -ErrorAction Stop
+
+            # Attach new ISO
+            Add-VMDvdDrive -VMName $Name -Path $IsoPath -ErrorAction Stop
+        }
+
+        return @{
+            Updated = $true
+            Name    = $Name
+        }
+    }
+    catch {
+        throw $_
+    }
 }
 
 
@@ -343,6 +426,7 @@ function Resume-HvoVm {
             throw "Cannot resume VM '$Name' because it is stopped (Off). Resume is only applicable to paused VMs. To start a stopped VM, use Start-VM."
         }
         throw "VM is in an invalid state for resuming: $vmState"
+    }
     catch {
         $msg = $_.Exception.Message
         if ($msg -match 'not found|does not exist|Cannot find') {
@@ -353,6 +437,7 @@ function Resume-HvoVm {
         throw
     }
 }
+
 
 function Remove-HvoVm {
     param(
