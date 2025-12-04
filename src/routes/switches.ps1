@@ -57,8 +57,8 @@ function global:Add-HvoSwitchRoutes {
             $result = New-HvoSwitch `
                 -Name $b.name `
                 -Type $b.type `
-                -NetAdapterName $b.netAdapterName`
-                -Notes  $b.notes
+                -NetAdapterName $b.netAdapterName `
+                -Notes $b.notes
 
             if ($result.Exists) {
                 Write-PodeJsonResponse -StatusCode 200 -Value @{

@@ -1,4 +1,7 @@
 function global:Add-HvoCommonRoutes {
+    ###
+    ### GET /health
+    ###
     Add-PodeRoute -Method Get -Path '/health' -ScriptBlock {
         try {
             # Ensure config and Get-HvoConfig are available in Pode's runspace
@@ -16,7 +19,11 @@ function global:Add-HvoCommonRoutes {
             }
         }
         catch {
-            Write-HvoErrorJson "HEALTH FAILED" 500 $_
+            # Return structured JSON error similar to other routes
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Health check failed"
+                detail = $_.Exception.Message
+            }
         }
     }
 }

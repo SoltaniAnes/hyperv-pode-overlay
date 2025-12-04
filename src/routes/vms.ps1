@@ -107,7 +107,7 @@ function global:Add-HvoVmRoutes {
             }
 
             #
-            # If no changes were needed → idempotent behavior
+            # If no changes were needed -> idempotent behavior
             #
             if ($result.Updated -eq $false -and $result.Unchanged) {
                 Write-PodeJsonResponse -StatusCode 200 -Value @{
@@ -243,7 +243,7 @@ function global:Add-HvoVmRoutes {
             
             # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
-                # Extraire le message sans le préfixe
+                # Extract the message without the prefix
                 $detail = $errorMessage -replace '^[^:]+:\s*', ''
                 Write-PodeJsonResponse -StatusCode 422 -Value @{
                     error = "Shutdown integration service not available or not enabled"
@@ -295,9 +295,9 @@ function global:Add-HvoVmRoutes {
         catch {
             $errorMessage = $_.Exception.Message
             
-            # Détecter les erreurs liées au service d'intégration d'arrêt
+            # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
-                # Extraire le message sans le préfixe
+                # Extract the message without the prefix
                 $detail = $errorMessage -replace '^[^:]+:\s*', ''
                 Write-PodeJsonResponse -StatusCode 422 -Value @{
                     error = "Shutdown integration service not available or not enabled"
