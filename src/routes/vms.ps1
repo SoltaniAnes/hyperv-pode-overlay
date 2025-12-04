@@ -88,22 +88,50 @@ function global:Add-HvoVmRoutes {
                 return
             }
 
-            # Only pass parameters that exist
+            # Only pass parameters actually provided by the client
             $params = @{ Name = $name }
 
-            if ($body.memoryMB) { $params.MemoryMB = $body.memoryMB }
-            if ($body.vcpu)     { $params.Vcpu     = $body.vcpu }
+            if ($body.memoryMB)   { $params.MemoryMB   = $body.memoryMB }
+            if ($body.vcpu)       { $params.Vcpu       = $body.vcpu }
             if ($body.switchName) { $params.SwitchName = $body.switchName }
-            if ($body.isoPath)  { $params.IsoPath  = $body.isoPath }
+            if ($body.isoPath)    { $params.IsoPath    = $body.isoPath }
 
             $result = Set-HvoVm @params
 
-            if (-not $result.Updated) {
+            #
+            # Return 404 when VM does not exist
+            #
+            if ($result.Error -eq "VM not found") {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            #
+            # If no changes were needed → idempotent behavior
+            #
+            if ($result.Updated -eq $false -and $result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    name      = $name
+                }
+                return
+            }
+
+            #
+            # If an update condition failed (e.g., VM running)
+            #
+            if ($result.Updated -eq $false -and $result.Error) {
                 Write-PodeJsonResponse -StatusCode 409 -Value $result
                 return
             }
 
-            Write-PodeJsonResponse -Value @{ updated = $result.Name }
+            #
+            # Success: the VM was updated
+            #
+            Write-PodeJsonResponse -StatusCode 200 -Value @{
+                updated = $true
+                name    = $name
+            }
         }
         catch {
             Write-PodeJsonResponse -StatusCode 500 -Value @{
@@ -112,6 +140,7 @@ function global:Add-HvoVmRoutes {
             }
         }
     }
+
 
 
     #
