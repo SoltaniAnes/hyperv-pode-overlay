@@ -53,7 +53,8 @@ hyperv-api/
   │   │   ├── vms.ps1                # VM routes (create/list/delete)
   │   │   └── switches.ps1           # Switch routes (create/list/delete)
   ├── docs/
-  │   └── api-reference.md     
+  │   ├── api-reference.md
+  │   └── openapi-documentation.md
   └── README.md
 ```
 
@@ -155,10 +156,30 @@ This format allows scripts, Terraform, or automation tools to reliably interpret
 
 ---
 
+## OpenAPI Documentation
+
+The API includes automatic OpenAPI v3 specification generation from inline code comments.
+
+**Generate static documentation:**
+```powershell
+pwsh src/scripts/generate-openapi.ps1
+```
+
+**Access dynamic documentation:**
+```bash
+curl http://<host>:8080/openapi.json
+```
+
+The generated specification can be used with Swagger UI, Redoc, Postman, or any OpenAPI-compatible tool.
+
+For details on how to document routes and use this feature, see [docs/openapi-documentation.md](docs/openapi-documentation.md).
+
+---
+
 ## Long-Term Goals
 
 - Official Terraform provider  
-- VM lifecycle actions (start, stop, reboot)  
+- ~~VM lifecycle actions (start, stop, reboot)~~  
 - VM cloning and templating  
 - Network adapter attach/detach  
 - Volume attach/detach  

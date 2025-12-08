@@ -145,7 +145,7 @@ Response 409:
 Response 422:
 {
   "error": "Shutdown integration service not available or not enabled",
-  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un arrêt forcé."
+  "detail": "The shutdown integration service is not available for VM 'vm1'. Use the 'force' parameter for a forced shutdown."
 }
 
 Response 500:
@@ -181,7 +181,7 @@ Response 404:
 Response 422:
 {
   "error": "Shutdown integration service not available or not enabled",
-  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un redémarrage forcé."
+  "detail": "The shutdown integration service is not available for VM 'vm1'. Use the 'force' parameter for a forced restart."
 }
 
 Response 500:

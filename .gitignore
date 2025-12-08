@@ -1,0 +1,16 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+
+# Temporary directories
+tmp/
+
+# Logs
+logs/
+
+# Cache
+cache/
