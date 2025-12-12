@@ -62,7 +62,8 @@ hyperv-api/
   │   ├── openapi.md                 # OpenAPI implementation and usage guide
   │   ├── openapi.json               # OpenAPI specification (JSON)
   │   └── openapi.yaml               # OpenAPI specification (YAML)
-  └── README.md
+  ├── README.md
+  └── LICENSE
 ```
 
 The project follows a route/service separation model:
