@@ -211,3 +211,9 @@ For detailed information on OpenAPI implementation and usage, see [docs/openapi.
 - Multi-host cluster support  
 
 ---
+
+
+## License
+
+This project is open source and licensed under the Apache License, Version 2.0.
+See the LICENSE file for details.
