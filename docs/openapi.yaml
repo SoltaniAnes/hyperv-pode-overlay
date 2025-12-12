@@ -1,0 +1,936 @@
+﻿openapi: 3.0.3
+info:
+  title: Hyper-V API
+  version: 1.0.0
+paths:
+  /openapi:
+    get:
+      tags:
+        - Documentation
+      summary: Get OpenAPI specification
+      description: Returns the OpenAPI 3.0 specification in JSON format
+      responses:
+        200:
+          description: OpenAPI specification in JSON format
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+        default:
+          description: Internal server error
+        500:
+          description: Failed to generate OpenAPI specification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /openapi.json:
+    get:
+      tags:
+        - Documentation
+      summary: Get OpenAPI specification (JSON)
+      description: Returns the OpenAPI 3.0 specification in JSON format
+      responses:
+        200:
+          description: OpenAPI specification in JSON format
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+        default:
+          description: Internal server error
+        500:
+          description: Failed to generate OpenAPI specification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /openapi.yaml:
+    get:
+      tags:
+        - Documentation
+      summary: Get OpenAPI specification (YAML)
+      description: Returns the OpenAPI 3.0 specification in YAML format
+      responses:
+        200:
+          description: OpenAPI specification in YAML format
+          content:
+            application/yaml:
+              schema:
+                type: string
+        default:
+          description: Internal server error
+        500:
+          description: Failed to generate OpenAPI specification
+          content:
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /docs/swagger:
+    get:
+      tags:
+        - Documentation
+      summary: Swagger UI documentation viewer
+      description: Interactive Swagger UI interface for exploring and testing the API
+      responses:
+        200:
+          description: Swagger UI HTML page
+        default:
+          description: Internal server error
+        500:
+          description: Failed to load Swagger UI
+  /docs/redoc:
+    get:
+      tags:
+        - Documentation
+      summary: ReDoc documentation viewer
+      description: Interactive ReDoc interface for viewing the API documentation
+      responses:
+        200:
+          description: ReDoc HTML page
+        default:
+          description: Internal server error
+        500:
+          description: Failed to load ReDoc
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns the health status of the API along with configuration information
+      responses:
+        200:
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSchema'
+        default:
+          description: Internal server error
+        500:
+          description: Health check failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms:
+    get:
+      tags:
+        - VMs
+      summary: List all virtual machines
+      description: Returns a list of all virtual machines on the Hyper-V host
+      responses:
+        200:
+          description: List of virtual machines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    Name:
+                      type: string
+                    State:
+                      type: string
+                    CPUUsage:
+                      type: integer
+                    MemoryAssigned:
+                      type: integer
+                    Uptime:
+                      type: string
+                  required:
+                    - Name
+                    - State
+                    - CPUUsage
+                    - MemoryAssigned
+                    - Uptime
+        default:
+          description: Internal server error
+        500:
+          description: Failed to list VMs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    post:
+      tags:
+        - VMs
+      summary: Create a new virtual machine
+      description: |
+          Creates a new virtual machine with the specified configuration. Returns 200 if
+          VM already exists (idempotent)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VmCreateSchema'
+        required: true
+      responses:
+        200:
+          description: VM already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: string
+                required:
+                  - exists
+        default:
+          description: Internal server error
+        201:
+          description: VM created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: string
+                required:
+                  - created
+        400:
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to create VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}:
+    get:
+      tags:
+        - VMs
+      summary: Get virtual machine details
+      description: Returns detailed information about a specific virtual machine
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: Virtual machine details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VmSchema'
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to get VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    put:
+      tags:
+        - VMs
+      summary: Update a virtual machine
+      description: |
+          Updates configuration of an existing virtual machine. VM must be stopped.
+          Returns 200 with unchanged=true if no changes were needed
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VmUpdateSchema'
+        required: true
+      responses:
+        200:
+          description: VM updated successfully or unchanged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: boolean
+                  unchanged:
+                    type: boolean
+                  name:
+                    type: string
+        default:
+          description: Internal server error
+        400:
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        409:
+          description: Update conflict (e.g., VM is running)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to update VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    delete:
+      tags:
+        - VMs
+      summary: Delete a virtual machine
+      description: Deletes a virtual machine and its associated virtual hard disks
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: VM deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: string
+                required:
+                  - deleted
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to delete VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/start:
+    post:
+      tags:
+        - VMs
+      summary: Start a virtual machine
+      description: Starts a virtual machine. If the VM is paused, it will be resumed
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: VM started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  started:
+                    type: string
+                required:
+                  - started
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to start VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/stop:
+    post:
+      tags:
+        - VMs
+      summary: Stop a virtual machine
+      description: |
+          Stops a virtual machine gracefully. Use force=true query parameter or body to
+          force shutdown
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: force
+          schema:
+            type: boolean
+          in: query
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+      responses:
+        200:
+          description: VM stopped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stopped:
+                    type: string
+                required:
+                  - stopped
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        409:
+          description: VM is already stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        422:
+          description: Shutdown integration service not available or not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to stop VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/restart:
+    post:
+      tags:
+        - VMs
+      summary: Restart a virtual machine
+      description: |
+          Restarts a virtual machine. Use force=true query parameter or body to force
+          shutdown before restart
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: force
+          schema:
+            type: boolean
+          in: query
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+      responses:
+        200:
+          description: VM restarted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restarted:
+                    type: string
+                required:
+                  - restarted
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        422:
+          description: Shutdown integration service not available or not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to restart VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/suspend:
+    post:
+      tags:
+        - VMs
+      summary: Suspend a virtual machine
+      description: Suspends (pauses) a running virtual machine
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: VM suspended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suspended:
+                    type: string
+                required:
+                  - suspended
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        409:
+          description: VM is already suspended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to suspend VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/resume:
+    post:
+      tags:
+        - VMs
+      summary: Resume a virtual machine
+      description: Resumes a suspended virtual machine
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: VM resumed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resumed:
+                    type: string
+                required:
+                  - resumed
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        409:
+          description: VM is already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to resume VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /switches:
+    get:
+      tags:
+        - Switches
+      summary: List all virtual switches
+      description: Returns a list of all virtual switches on the Hyper-V host
+      responses:
+        200:
+          description: List of virtual switches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    Name:
+                      type: string
+                    SwitchType:
+                      type: string
+                      enum:
+                        - Internal
+                        - External
+                        - Private
+                    Notes:
+                      type: string
+                  required:
+                    - Name
+                    - SwitchType
+        default:
+          description: Internal server error
+        500:
+          description: Failed to list switches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    post:
+      tags:
+        - Switches
+      summary: Create a new virtual switch
+      description: |
+          Creates a new virtual switch. For External switches, netAdapterName is required.
+          Returns 200 if switch already exists (idempotent)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchCreateSchema'
+        required: true
+      responses:
+        200:
+          description: Switch already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: string
+                required:
+                  - exists
+        default:
+          description: Internal server error
+        201:
+          description: Switch created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: string
+                required:
+                  - created
+        400:
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to create switch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /switches/{name}:
+    get:
+      tags:
+        - Switches
+      summary: Get virtual switch details
+      description: Returns detailed information about a specific virtual switch
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: Virtual switch details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchSchema'
+        default:
+          description: Internal server error
+        404:
+          description: Switch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to get switch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    put:
+      tags:
+        - Switches
+      summary: Update a virtual switch
+      description: Updates the notes field of an existing virtual switch
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchUpdateSchema'
+        required: true
+      responses:
+        200:
+          description: Switch updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: string
+                required:
+                  - updated
+        default:
+          description: Internal server error
+        400:
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        404:
+          description: Switch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to update switch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    delete:
+      tags:
+        - Switches
+      summary: Delete a virtual switch
+      description: Deletes a virtual switch
+      parameters:
+        - name: name
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: Switch deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: string
+                required:
+                  - deleted
+        default:
+          description: Internal server error
+        404:
+          description: Switch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to delete switch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+components:
+  schemas:
+    ErrorSchema:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+      required:
+        - error
+    HealthSchema:
+      type: object
+      properties:
+        status:
+          type: string
+        config:
+          type: object
+          properties: {}
+        root:
+          type: string
+        time:
+          type: string
+      required:
+        - status
+        - config
+        - root
+        - time
+    VmSchema:
+      type: object
+      properties:
+        Name:
+          type: string
+        State:
+          type: string
+        CPUUsage:
+          type: integer
+        MemoryAssigned:
+          type: integer
+        Uptime:
+          type: string
+      required:
+        - Name
+        - State
+        - CPUUsage
+        - MemoryAssigned
+        - Uptime
+    VmCreateSchema:
+      type: object
+      properties:
+        name:
+          type: string
+        memoryMB:
+          type: integer
+        vcpu:
+          type: integer
+        diskPath:
+          type: string
+        diskGB:
+          type: integer
+        switchName:
+          type: string
+        isoPath:
+          type: string
+      required:
+        - name
+        - memoryMB
+        - vcpu
+        - diskPath
+        - diskGB
+        - switchName
+    VmUpdateSchema:
+      type: object
+      properties:
+        memoryMB:
+          type: integer
+        vcpu:
+          type: integer
+        switchName:
+          type: string
+        isoPath:
+          type: string
+    VmResponseSchema:
+      type: object
+      properties:
+        created:
+          type: string
+        exists:
+          type: string
+        updated:
+          type: string
+        unchanged:
+          type: boolean
+        name:
+          type: string
+        deleted:
+          type: string
+        started:
+          type: string
+        stopped:
+          type: string
+        restarted:
+          type: string
+        suspended:
+          type: string
+        resumed:
+          type: string
+    SwitchSchema:
+      type: object
+      properties:
+        Name:
+          type: string
+        SwitchType:
+          type: string
+          enum:
+            - Internal
+            - External
+            - Private
+        Notes:
+          type: string
+      required:
+        - Name
+        - SwitchType
+    SwitchCreateSchema:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - Internal
+            - External
+            - Private
+        netAdapterName:
+          type: string
+        notes:
+          type: string
+      required:
+        - name
+        - type
+    SwitchUpdateSchema:
+      type: object
+      properties:
+        notes:
+          type: string

@@ -1,9 +1,56 @@
-function global:Add-HvoVmRoutes {
+﻿function global:Add-HvoVmRoutes {
+    # Define reusable OpenAPI component schemas for VMs
+    Add-PodeOAComponentSchema -Name 'VmSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'Name' -Required),
+            (New-PodeOAStringProperty -Name 'State' -Required),
+            (New-PodeOAIntProperty -Name 'CPUUsage' -Required),
+            (New-PodeOAIntProperty -Name 'MemoryAssigned' -Required),
+            (New-PodeOAStringProperty -Name 'Uptime' -Required)
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'VmCreateSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'name' -Required),
+            (New-PodeOAIntProperty -Name 'memoryMB' -Required),
+            (New-PodeOAIntProperty -Name 'vcpu' -Required),
+            (New-PodeOAStringProperty -Name 'diskPath' -Required),
+            (New-PodeOAIntProperty -Name 'diskGB' -Required),
+            (New-PodeOAStringProperty -Name 'switchName' -Required),
+            (New-PodeOAStringProperty -Name 'isoPath')
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'VmUpdateSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAIntProperty -Name 'memoryMB'),
+            (New-PodeOAIntProperty -Name 'vcpu'),
+            (New-PodeOAStringProperty -Name 'switchName'),
+            (New-PodeOAStringProperty -Name 'isoPath')
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'VmResponseSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'created'),
+            (New-PodeOAStringProperty -Name 'exists'),
+            (New-PodeOAStringProperty -Name 'updated'),
+            (New-PodeOABoolProperty -Name 'unchanged'),
+            (New-PodeOAStringProperty -Name 'name'),
+            (New-PodeOAStringProperty -Name 'deleted'),
+            (New-PodeOAStringProperty -Name 'started'),
+            (New-PodeOAStringProperty -Name 'stopped'),
+            (New-PodeOAStringProperty -Name 'restarted'),
+            (New-PodeOAStringProperty -Name 'suspended'),
+            (New-PodeOAStringProperty -Name 'resumed')
+        )
+    )
 
     #
     # GET /vms
     #
-    Add-PodeRoute -Method Get -Path '/vms' -ScriptBlock {
+    $route = Add-PodeRoute -Method Get -Path '/vms' -ScriptBlock {
         try {
             $vms = Get-HvoVms
             Write-PodeJsonResponse -Value $vms
@@ -14,11 +61,25 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'List all virtual machines' -Description 'Returns a list of all virtual machines on the Hyper-V host' -Tags @('VMs')
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'List of virtual machines' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Array -Properties @(
+            (New-PodeOAStringProperty -Name 'Name' -Required),
+            (New-PodeOAStringProperty -Name 'State' -Required),
+            (New-PodeOAIntProperty -Name 'CPUUsage' -Required),
+            (New-PodeOAIntProperty -Name 'MemoryAssigned' -Required),
+            (New-PodeOAStringProperty -Name 'Uptime' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to list VMs' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
     #
     # GET /vms/:name
     #
-    Add-PodeRoute -Method Get -Path '/vms/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Get -Path '/vms/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
 
@@ -38,13 +99,27 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Get virtual machine details' -Description 'Returns detailed information about a specific virtual machine' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Virtual machine details' -ContentSchemas @{
+        'application/json' = 'VmSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to get VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
     #
     # POST /vms
     #
 
-    Add-PodeRoute -Method Post -Path '/vms' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms' -ScriptBlock {
         try {
             $b = Get-HvoJsonBody
 
@@ -72,13 +147,34 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Create a new virtual machine' -Description 'Creates a new virtual machine with the specified configuration. Returns 200 if VM already exists (idempotent)' -Tags @('VMs')
+    $route | Set-PodeOARequest -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = 'VmCreateSchema'
+    } -Required)
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM already exists' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'exists' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 201 -Description 'VM created successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'created' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to create VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
     #
     # PUT /vms/:name
     #
 
-    Add-PodeRoute -Method Put -Path '/vms/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Put -Path '/vms/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $body = Get-HvoJsonBody
@@ -139,6 +235,32 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Updates configuration of an existing virtual machine. VM must be stopped. Returns 200 with unchanged=true if no changes were needed' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = 'VmUpdateSchema'
+    } -Required)
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM updated successfully or unchanged' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOABoolProperty -Name 'updated'),
+            (New-PodeOABoolProperty -Name 'unchanged'),
+            (New-PodeOAStringProperty -Name 'name')
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 409 -Description 'Update conflict (e.g., VM is running)' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
@@ -146,7 +268,7 @@ function global:Add-HvoVmRoutes {
     #
     # DELETE /vms/:name
     #
-    Add-PodeRoute -Method Delete -Path '/vms/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Delete -Path '/vms/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $ok = Remove-HvoVm -Name $name -RemoveDisks:$true
@@ -168,13 +290,29 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Delete a virtual machine' -Description 'Deletes a virtual machine and its associated virtual hard disks' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM deleted successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'deleted' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to delete VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /vms/:name/start
     #
-    Add-PodeRoute -Method Post -Path '/vms/:name/start' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms/:name/start' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $result = Start-HvoVm -Name $name
@@ -196,16 +334,32 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Start a virtual machine' -Description 'Starts a virtual machine. If the VM is paused, it will be resumed' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM started successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'started' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to start VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /vms/:name/stop
     #
-    Add-PodeRoute -Method Post -Path '/vms/:name/stop' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms/:name/stop' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
-            
+
             # Extract force parameter from query or body
             $force = $false
             if ($WebEvent.Query['force'] -eq "true") {
@@ -217,7 +371,7 @@ function global:Add-HvoVmRoutes {
                     $force = $true
                 }
             }
-            
+
             $result = Stop-HvoVm -Name $name -Force:$force
 
             if (-not $result) {
@@ -240,7 +394,7 @@ function global:Add-HvoVmRoutes {
         }
         catch {
             $errorMessage = $_.Exception.Message
-            
+
             # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
                 # Extract the message without the prefix
@@ -251,22 +405,49 @@ function global:Add-HvoVmRoutes {
                 }
                 return
             }
-            
+
             Write-PodeJsonResponse -StatusCode 500 -Value @{
                 error = "Failed to stop VM"
                 detail = $errorMessage
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Stop a virtual machine' -Description 'Stops a virtual machine gracefully. Use force=true query parameter or body to force shutdown' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path),
+        (New-PodeOABoolProperty -Name 'force' | ConvertTo-PodeOAParameter -In Query)
+    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOABoolProperty -Name 'force')
+        ))
+    })
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM stopped successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'stopped' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 409 -Description 'VM is already stopped' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 422 -Description 'Shutdown integration service not available or not enabled' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to stop VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /vms/:name/restart
     #
-    Add-PodeRoute -Method Post -Path '/vms/:name/restart' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms/:name/restart' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
-            
+
             # Extract force parameter from query or body
             $force = $false
             if ($WebEvent.Query['force'] -eq "true") {
@@ -278,7 +459,7 @@ function global:Add-HvoVmRoutes {
                     $force = $true
                 }
             }
-            
+
             $result = Restart-HvoVm -Name $name -Force:$force
 
             if (-not $result) {
@@ -294,7 +475,7 @@ function global:Add-HvoVmRoutes {
         }
         catch {
             $errorMessage = $_.Exception.Message
-            
+
             # Detect errors related to the shutdown integration service
             if ($errorMessage -match 'SHUTDOWN_SERVICE_NOT_AVAILABLE|SHUTDOWN_SERVICE_NOT_ENABLED') {
                 # Extract the message without the prefix
@@ -305,19 +486,43 @@ function global:Add-HvoVmRoutes {
                 }
                 return
             }
-            
+
             Write-PodeJsonResponse -StatusCode 500 -Value @{
                 error = "Failed to restart VM"
                 detail = $errorMessage
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Restart a virtual machine' -Description 'Restarts a virtual machine. Use force=true query parameter or body to force shutdown before restart' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path),
+        (New-PodeOABoolProperty -Name 'force' | ConvertTo-PodeOAParameter -In Query)
+    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOABoolProperty -Name 'force')
+        ))
+    })
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM restarted successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'restarted' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 422 -Description 'Shutdown integration service not available or not enabled' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to restart VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /vms/:name/suspend
     #
-    Add-PodeRoute -Method Post -Path '/vms/:name/suspend' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms/:name/suspend' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $result = Suspend-HvoVm -Name $name
@@ -346,13 +551,32 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Suspend a virtual machine' -Description 'Suspends (pauses) a running virtual machine' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM suspended successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'suspended' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 409 -Description 'VM is already suspended' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to suspend VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /vms/:name/resume
     #
-    Add-PodeRoute -Method Post -Path '/vms/:name/resume' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/vms/:name/resume' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $result = Resume-HvoVm -Name $name
@@ -381,6 +605,25 @@ function global:Add-HvoVmRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Resume a virtual machine' -Description 'Resumes a suspended virtual machine' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM resumed successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'resumed' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 409 -Description 'VM is already running' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to resume VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 }

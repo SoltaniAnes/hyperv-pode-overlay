@@ -30,12 +30,13 @@ The Hyper-V host becomes manageable like any other infrastructure backend.
 - JSON error model with optional technical detail  
 - Modular PowerShell code structure  
 - Zero external dependencies beyond PowerShell, Pode, and Hyper-V  
+- OpenAPI 3.0 specification with interactive documentation viewers  
 
 ---
 
 ## Architecture
 
-```
+```text
 hyperv-api/
   ├── src/
   │   ├── server.ps1                 # Pode server entrypoint
@@ -51,13 +52,21 @@ hyperv-api/
   │   ├── routes/                    # HTTP route definitions
   │   │   ├── common.ps1             # /health and meta routes
   │   │   ├── vms.ps1                # VM routes (create/list/delete)
-  │   │   └── switches.ps1           # Switch routes (create/list/delete)
+  │   │   ├── switches.ps1           # Switch routes (create/list/delete)
+  │   │   └── openapi.ps1            # OpenAPI documentation routes
+  │   └── scripts/                   # Utility scripts
+  │       ├── check-requirement.ps1  # Script to check and install prerequisites (Pode)
+  │       └── generate-openapi.ps1  # Script to generate static OpenAPI files
   ├── docs/
-  │   └── api-reference.md     
+  │   ├── api-reference.md           # API reference documentation
+  │   ├── openapi.md                 # OpenAPI implementation and usage guide
+  │   ├── openapi.json               # OpenAPI specification (JSON)
+  │   └── openapi.yaml               # OpenAPI specification (YAML)
   └── README.md
 ```
 
 The project follows a route/service separation model:
+
 - Routes handle HTTP and JSON
 - Services contain Hyper-V logic
 - Utilities provide shared helpers
@@ -155,10 +164,44 @@ This format allows scripts, Terraform, or automation tools to reliably interpret
 
 ---
 
+## OpenAPI Documentation
+
+The API includes full OpenAPI 3.0 specification support with interactive documentation viewers.
+
+### Interactive Documentation
+
+When the server is running, you can access:
+
+- **Swagger UI**: `http://<host>:8080/docs/swagger` - Interactive API explorer with request testing
+- **ReDoc**: `http://<host>:8080/docs/redoc` - Clean, responsive API documentation viewer
+
+### OpenAPI Endpoints
+
+- **JSON Specification**: `http://<host>:8080/openapi.json` - Get the OpenAPI spec in JSON format
+- **YAML Specification**: `http://<host>:8080/openapi.yaml` - Get the OpenAPI spec in YAML format
+
+### Static Documentation Files
+
+Static OpenAPI specification files are available in the `docs/` directory:
+
+- `docs/openapi.json` - JSON format
+- `docs/openapi.yaml` - YAML format
+
+These files can be generated using the provided script:
+
+```powershell
+cd src/scripts
+.\generate-openapi.ps1
+```
+
+For detailed information on OpenAPI implementation and usage, see [docs/openapi.md](docs/openapi.md).
+
+---
+
 ## Long-Term Goals
 
 - Official Terraform provider  
-- VM lifecycle actions (start, stop, reboot)  
+- ~~VM lifecycle actions (start, stop, reboot)~~
 - VM cloning and templating  
 - Network adapter attach/detach  
 - Volume attach/detach  
@@ -168,4 +211,3 @@ This format allows scripts, Terraform, or automation tools to reliably interpret
 - Multi-host cluster support  
 
 ---
-

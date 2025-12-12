@@ -1,8 +1,25 @@
-function global:Add-HvoCommonRoutes {
+﻿function global:Add-HvoCommonRoutes {
+    # Define reusable OpenAPI component schemas
+    Add-PodeOAComponentSchema -Name 'ErrorSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'error' -Required),
+            (New-PodeOAStringProperty -Name 'detail')
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'HealthSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'status' -Required),
+            (New-PodeOAObjectProperty -Name 'config' -Required),
+            (New-PodeOAStringProperty -Name 'root' -Required),
+            (New-PodeOAStringProperty -Name 'time' -Required)
+        )
+    )
+
     ###
     ### GET /health
     ###
-    Add-PodeRoute -Method Get -Path '/health' -ScriptBlock {
+    $healthRoute = Add-PodeRoute -Method Get -Path '/health' -ScriptBlock {
         try {
             # Ensure config and Get-HvoConfig are available in Pode's runspace
             $configPath = Join-Path $PSScriptRoot '..' 'config.ps1'
@@ -25,5 +42,13 @@ function global:Add-HvoCommonRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $healthRoute | Set-PodeOARouteInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the API along with configuration information' -Tags @('Health')
+    $healthRoute | Add-PodeOAResponse -StatusCode 200 -Description 'API is healthy' -ContentSchemas @{
+        'application/json' = 'HealthSchema'
+    }
+    $healthRoute | Add-PodeOAResponse -StatusCode 500 -Description 'Health check failed' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 }

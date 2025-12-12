@@ -1,0 +1,215 @@
+# ============================================
+# PowerShell - Specific files
+# ============================================
+
+# PowerShell cache files
+*.cache
+*.ps1.cache
+
+# Local PowerShell module files
+*.psm1.bak
+*.psd1.bak
+
+# PowerShell transcript files
+*.transcript
+
+# Local PowerShell profile files
+profile.ps1.local
+Microsoft.PowerShell_profile.ps1
+
+# PowerShell metadata files
+*.ps1xml.bak
+
+# ============================================
+# Temporary and build files
+# ============================================
+
+# Temporary directory
+tmp/
+temp/
+*.tmp
+
+# Build files
+build/
+dist/
+out/
+bin/
+obj/
+
+# Compilation files
+*.pdb
+*.dll
+*.exe
+
+# ============================================
+# Environment and configuration files
+# ============================================
+
+# Environment variables
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+*.env
+
+# Local configuration files
+config.local.*
+*.local.json
+*.local.yaml
+*.local.yml
+*.local.ps1
+
+# Secrets and keys
+secrets.json
+secrets.yaml
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+
+# ============================================
+# Log files
+# ============================================
+
+# PowerShell logs
+*.log
+logs/
+*.log.*
+
+# Journal files
+*.journal
+
+# ============================================
+# Test and coverage files
+# ============================================
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coverage.xml
+coverage/
+
+# Pester files
+*.testresults.xml
+
+# ============================================
+# IDE and editor files
+# ============================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Cursor
+.cursor/
+*.cursor-workspace
+
+# JetBrains (IntelliJ IDEA, PyCharm, WebStorm, Rider, etc.)
+.idea/
+
+# ============================================
+# Operating system files
+# ============================================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# Dependencies and packages files
+# ============================================
+
+# Locally installed PowerShell modules
+Modules/
+packages/
+*.nupkg
+*.snupkg
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ============================================
+# Generated documentation files
+# ============================================
+
+# Generated documentation (if not versioned)
+docs/_build/
+docs/_site/
+docs/.doctrees/
+
+# ============================================
+# Backup files
+# ============================================
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# ============================================
+# Deployment files
+# ============================================
+
+# Temporary deployment files
+deploy/
+*.deploy
+*.zip
+*.tar.gz
+
+# ============================================
+# Cache and temporary data files
+# ============================================
+
+# General cache
+.cache/
+*.cache
+
+# Temporary data files
+*.data
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# Project-specific files
+# ============================================
+
+# Add project-specific files here
+# Examples:
+# custom-output/
+# generated-files/

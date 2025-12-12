@@ -1,4 +1,4 @@
-function New-HvoVm {
+﻿function New-HvoVm {
     param(
         [Parameter(Mandatory)] [string] $Name,
         [Parameter(Mandatory)] [int]    $MemoryMB,
@@ -163,7 +163,7 @@ function Get-HvoVm {
     param([string]$Name)
 
     $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-    if (-not $vm) { 
+    if (-not $vm) {
         return $null }
 
     return [PSCustomObject]@{
@@ -194,13 +194,13 @@ function Start-HvoVm {
     )
     try {
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) {
             return $null
         }
 
         $vmState = $vm.State.ToString()
-        
+
         if ($vmState -eq "Running") {
             return @{
                 Started = $false
@@ -256,13 +256,13 @@ function Stop-HvoVm {
     )
     try {
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) {
             return $null
         }
 
         $vmState = $vm.State.ToString()
-        
+
         if ($vmState -eq "Off") {
             return @{
                 Stopped = $false
@@ -278,15 +278,15 @@ function Stop-HvoVm {
             else {
                 # Vérifier la présence et l'activation du service d'intégration d'arrêt
                 $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
-                
+
                 if (-not $shutdownService) {
                     throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$Name'. Use the 'force' parameter for a forced shutdown."
                 }
-                
+
                 if (-not $shutdownService.Enabled) {
                     throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$Name'. Use the 'force' parameter for a forced shutdown."
                 }
-                
+
                 Stop-VM -Name $Name -ErrorAction Stop
             }
             return @{
@@ -316,13 +316,13 @@ function Restart-HvoVm {
     )
     try {
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) {
             return $null
         }
 
         $vmState = $vm.State.ToString()
-        
+
         if ($vmState -eq "Off") {
             # Idempotence: if the VM is stopped, start it
             Start-VM -Name $Name -ErrorAction Stop
@@ -339,15 +339,15 @@ function Restart-HvoVm {
             else {
                 # Vérifier la présence et l'activation du service d'intégration d'arrêt
                 $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
-                
+
                 if (-not $shutdownService) {
                     throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM '$Name'. Utilisez le paramètre 'force' pour un redémarrage forcé."
                 }
-                
+
                 if (-not $shutdownService.Enabled) {
                     throw "SHUTDOWN_SERVICE_NOT_ENABLED: Le service d'intégration d'arrêt (Shutdown) n'est pas activé pour la VM '$Name'. Utilisez le paramètre 'force' pour un redémarrage forcé."
                 }
-                
+
                 Restart-VM -Name $Name -ErrorAction Stop
             }
             return @{
@@ -375,13 +375,13 @@ function Suspend-HvoVm {
     )
     try {
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) {
             return $null
         }
 
         $vmState = $vm.State.ToString()
-        
+
         if ($vmState -eq "Paused") {
             return @{
                 Suspended = $false
@@ -418,13 +418,13 @@ function Resume-HvoVm {
     )
     try {
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) {
             return $null
         }
 
         $vmState = $vm.State.ToString()
-        
+
         if ($vmState -eq "Running") {
             return @{
                 Resumed = $false
@@ -465,11 +465,11 @@ function Remove-HvoVm {
         [bool] $RemoveDisks
     )
     try {
-        
+
         $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
-        
+
         if (-not $vm) { return $false }
-        
+
 
         if ($vm.State -in @("Running", "Paused")) {
             Stop-VM -Name $Name -Force -ErrorAction Stop

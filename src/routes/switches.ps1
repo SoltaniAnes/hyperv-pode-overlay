@@ -1,9 +1,32 @@
-function global:Add-HvoSwitchRoutes {
+﻿function global:Add-HvoSwitchRoutes {
+    # Define reusable OpenAPI component schemas for Switches
+    Add-PodeOAComponentSchema -Name 'SwitchSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'Name' -Required),
+            (New-PodeOAStringProperty -Name 'SwitchType' -Required -Enum @('Internal', 'External', 'Private')),
+            (New-PodeOAStringProperty -Name 'Notes')
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'SwitchCreateSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'name' -Required),
+            (New-PodeOAStringProperty -Name 'type' -Required -Enum @('Internal', 'External', 'Private')),
+            (New-PodeOAStringProperty -Name 'netAdapterName'),
+            (New-PodeOAStringProperty -Name 'notes')
+        )
+    )
+
+    Add-PodeOAComponentSchema -Name 'SwitchUpdateSchema' -Schema (
+        New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'notes')
+        )
+    )
 
     #
     # GET /switches
     #
-    Add-PodeRoute -Method Get -Path '/switches' -ScriptBlock {
+    $route = Add-PodeRoute -Method Get -Path '/switches' -ScriptBlock {
         try {
             Write-PodeJsonResponse -Value (Get-HvoSwitches)
         }
@@ -13,13 +36,25 @@ function global:Add-HvoSwitchRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'List all virtual switches' -Description 'Returns a list of all virtual switches on the Hyper-V host' -Tags @('Switches')
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'List of virtual switches' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Array -Properties @(
+            (New-PodeOAStringProperty -Name 'Name' -Required),
+            (New-PodeOAStringProperty -Name 'SwitchType' -Required -Enum @('Internal', 'External', 'Private')),
+            (New-PodeOAStringProperty -Name 'Notes')
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to list switches' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # GET /switches/:name
     #
-    Add-PodeRoute -Method Get -Path '/switches/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Get -Path '/switches/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
 
@@ -39,13 +74,27 @@ function global:Add-HvoSwitchRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Get virtual switch details' -Description 'Returns detailed information about a specific virtual switch' -Tags @('Switches')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Virtual switch details' -ContentSchemas @{
+        'application/json' = 'SwitchSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'Switch not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to get switch' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
     #
     # POST /switches
     #
-    Add-PodeRoute -Method Post -Path '/switches' -ScriptBlock {
+    $route = Add-PodeRoute -Method Post -Path '/switches' -ScriptBlock {
         try {
             $b = Get-HvoJsonBody
 
@@ -77,12 +126,33 @@ function global:Add-HvoSwitchRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Create a new virtual switch' -Description 'Creates a new virtual switch. For External switches, netAdapterName is required. Returns 200 if switch already exists (idempotent)' -Tags @('Switches')
+    $route | Set-PodeOARequest -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = 'SwitchCreateSchema'
+    } -Required)
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Switch already exists' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'exists' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 201 -Description 'Switch created successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'created' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to create switch' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
     #
     # PUT /switches/:name
     #
-    Add-PodeRoute -Method Put -Path '/switches/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Put -Path '/switches/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $body = Get-HvoJsonBody
@@ -114,6 +184,27 @@ function global:Add-HvoSwitchRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Update a virtual switch' -Description 'Updates the notes field of an existing virtual switch' -Tags @('Switches')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = 'SwitchUpdateSchema'
+    } -Required)
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Switch updated successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'updated' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'Switch not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update switch' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 
@@ -121,7 +212,7 @@ function global:Add-HvoSwitchRoutes {
     #
     # DELETE /switches/:name
     #
-    Add-PodeRoute -Method Delete -Path '/switches/:name' -ScriptBlock {
+    $route = Add-PodeRoute -Method Delete -Path '/switches/:name' -ScriptBlock {
         try {
             $name = $WebEvent.Parameters['name']
             $ok = Remove-HvoSwitch -Name $name
@@ -143,6 +234,22 @@ function global:Add-HvoSwitchRoutes {
                 detail = $_.Exception.Message
             }
         }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Delete a virtual switch' -Description 'Deletes a virtual switch' -Tags @('Switches')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Switch deleted successfully' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAStringProperty -Name 'deleted' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'Switch not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to delete switch' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
     }
 
 }

@@ -1,0 +1,35 @@
+# Pre-commit configuration for Hyper-V API Overlay
+# Installation: pip install pre-commit
+# Activation: pre-commit install
+# Test: pre-commit run --all-files
+
+repos:
+  # Pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0 # Always use a specific, stable version
+    hooks:
+      - id: check-added-large-files # Prevents committing large files (default 500kB)
+        exclude: docs/openapi\.json
+      - id: check-merge-conflict # Detects unresolved merge conflicts
+      - id: check-yaml # Validates YAML file syntax
+      - id: check-json # Validates JSON file syntax
+      - id: detect-private-key # Helps prevent accidental commits of private keys
+      - id: end-of-file-fixer # Ensures files end with a single newline character
+      - id: mixed-line-ending # Normalizes line endings to LR
+        args: ["--fix=lf"]
+      - id: no-commit-to-branch # Prevents commits to main, master branches
+        stages: [commit-msg]
+      - id: trailing-whitespace # Removes extra whitespaces at the end of lines
+        args: [--markdown-linebreak-ext=md]
+  # Gitleaks hooks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks # Scans for sensitive information
+  # Conventional pre-commit hooks
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--verbose]

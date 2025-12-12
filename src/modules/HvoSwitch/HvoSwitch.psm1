@@ -1,4 +1,4 @@
-function New-HvoSwitch {
+﻿function New-HvoSwitch {
     param(
         [string] $Name,
         [ValidateSet('Internal', 'External', 'Private')] [string] $Type,
@@ -29,7 +29,7 @@ function New-HvoSwitch {
             $sw = New-VMSwitch -Name $Name -NetAdapterName $NetAdapterName -AllowManagementOS $true
         }
     }
-    
+
     # Apply notes if provided
     if ($Notes) {
         Set-VMSwitch -Name $Name -Notes $Notes | Out-Null
