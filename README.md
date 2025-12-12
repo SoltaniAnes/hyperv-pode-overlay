@@ -20,6 +20,8 @@ This project fills that gap by providing:
 
 The Hyper-V host becomes manageable like any other infrastructure backend.
 
+**The API is currently unauthenticated and intended for trusted environments only.**
+
 ---
 
 ## Features
@@ -98,6 +100,19 @@ The project follows a route/service separation model:
 ## Running the API
 
 PowerShell 7 is recommended.
+
+### Prerequisites
+
+- Windows with Hyper-V enabled
+- PowerShell 7 (`pwsh`)
+- Pode PowerShell module
+
+If Pode is not installed, install it once:
+
+```powershell
+Install-Module Pode -Repository PSGallery -Scope CurrentUser
+```
+### Start the API
 
 From the Hyper-V host:
 
