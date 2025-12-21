@@ -106,8 +106,15 @@ function Set-HvoVm {
         # SWITCH — update only if different
         #
         if ($PSBoundParameters.ContainsKey("SwitchName")) {
-            $currentNic = Get-VMNetworkAdapter -VMName $Name -ErrorAction SilentlyContinue
-            $currentSwitch = $currentNic?.SwitchName
+            $currentNics = Get-VMNetworkAdapter -VMName $Name -ErrorAction SilentlyContinue
+            # Get-VMNetworkAdapter returns an array, take the first adapter
+            $currentSwitch = $null
+            if ($currentNics) {
+                $firstNic = if ($currentNics -is [Array]) { $currentNics[0] } else { $currentNics }
+                if ($firstNic) {
+                    $currentSwitch = $firstNic.SwitchName
+                }
+            }
 
             if ($currentSwitch -ne $SwitchName) {
                 Get-VMNetworkAdapter -VMName $Name |
@@ -244,7 +251,7 @@ function Start-HvoVm {
             return $null
         }
 
-        Write-Host "Start-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
@@ -276,7 +283,7 @@ function Stop-HvoVm {
                 Stop-VM -Name $Name -Force -ErrorAction Stop
             }
             else {
-                # Vérifier la présence et l'activation du service d'intégration d'arrêt
+                # Check the presence and activation of the shutdown integration service
                 $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
 
                 if (-not $shutdownService) {
@@ -304,7 +311,7 @@ function Stop-HvoVm {
             return $null
         }
 
-        Write-Host "Stop-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
@@ -337,15 +344,15 @@ function Restart-HvoVm {
                 Restart-VM -Name $Name -Force -ErrorAction Stop
             }
             else {
-                # Vérifier la présence et l'activation du service d'intégration d'arrêt
+                # Check the presence and activation of the shutdown integration service
                 $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
 
                 if (-not $shutdownService) {
-                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM '$Name'. Utilisez le paramètre 'force' pour un redémarrage forcé."
+                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$Name'. Use the 'force' parameter for a forced restart."
                 }
 
                 if (-not $shutdownService.Enabled) {
-                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: Le service d'intégration d'arrêt (Shutdown) n'est pas activé pour la VM '$Name'. Utilisez le paramètre 'force' pour un redémarrage forcé."
+                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$Name'. Use the 'force' parameter for a forced restart."
                 }
 
                 Restart-VM -Name $Name -ErrorAction Stop
@@ -364,7 +371,7 @@ function Restart-HvoVm {
             return $null
         }
 
-        Write-Host "Restart-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
@@ -407,7 +414,7 @@ function Suspend-HvoVm {
             return $null
         }
 
-        Write-Host "Suspend-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
@@ -453,7 +460,7 @@ function Resume-HvoVm {
             return $null
         }
 
-        Write-Host "Resume-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
@@ -508,7 +515,7 @@ function Remove-HvoVm {
             return $false
         }
 
-        Write-Host "Remove-HvoVm error: $($_ | Out-String)" -ForegroundColor Red
+        # Propagate the exception without display - the caller will handle the error
         throw
     }
 }
