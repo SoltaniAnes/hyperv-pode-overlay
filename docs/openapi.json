@@ -331,12 +331,12 @@
         "description": "Returns detailed information about a specific virtual machine",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -383,12 +383,12 @@
         "description": "Updates configuration of an existing virtual machine. VM must be stopped. Returns 200 with unchanged=true if no changes were needed",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "requestBody": {
@@ -476,12 +476,12 @@
         "description": "Deletes a virtual machine and its associated virtual hard disks",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -538,12 +538,12 @@
         "description": "Starts a virtual machine. If the VM is paused, it will be resumed",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -600,19 +600,19 @@
         "description": "Stops a virtual machine gracefully. Use force=true query parameter or body to force shutdown",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           },
           {
-            "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
             },
-            "in": "query"
+            "name": "force"
           }
         ],
         "requestBody": {
@@ -703,19 +703,19 @@
         "description": "Restarts a virtual machine. Use force=true query parameter or body to force shutdown before restart",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           },
           {
-            "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
             },
-            "in": "query"
+            "name": "force"
           }
         ],
         "requestBody": {
@@ -796,12 +796,12 @@
         "description": "Suspends (pauses) a running virtual machine",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -868,12 +868,12 @@
         "description": "Resumes a suspended virtual machine",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -1075,12 +1075,12 @@
         "description": "Returns detailed information about a specific virtual switch",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
@@ -1127,12 +1127,12 @@
         "description": "Updates the notes field of an existing virtual switch",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "requestBody": {
@@ -1207,12 +1207,12 @@
         "description": "Deletes a virtual switch",
         "parameters": [
           {
-            "name": "name",
+            "in": "path",
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "name": "name"
           }
         ],
         "responses": {
