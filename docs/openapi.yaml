@@ -215,8 +215,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: Virtual machine details
@@ -249,8 +249,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       requestBody:
         content:
           application/json:
@@ -306,8 +306,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: VM deleted successfully
@@ -344,8 +344,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: VM started successfully
@@ -384,8 +384,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
         - name: force
           schema:
             type: boolean
@@ -448,8 +448,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
         - name: force
           schema:
             type: boolean
@@ -504,8 +504,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: VM suspended successfully
@@ -548,8 +548,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: VM resumed successfully
@@ -578,6 +578,57 @@ paths:
                 $ref: '#/components/schemas/ErrorSchema'
         500:
           description: Failed to resume VM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{name}/network-adapters:
+    get:
+      tags:
+        - VMs
+      summary: List network adapters of a virtual machine
+      description: Returns a list of all network adapters for a specific virtual machine
+      parameters:
+        - name: name
+          schema:
+            type: string
+          required: true
+          in: path
+      responses:
+        200:
+          description: List of network adapters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    Name:
+                      type: string
+                    SwitchName:
+                      type: string
+                    Type:
+                      type: string
+                    MacAddress:
+                      type: string
+                    Status:
+                      type: string
+                  required:
+                    - Name
+                    - Type
+                    - MacAddress
+                    - Status
+        default:
+          description: Internal server error
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to list network adapters
           content:
             application/json:
               schema:
@@ -679,8 +730,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: Virtual switch details
@@ -711,8 +762,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       requestBody:
         content:
           application/json:
@@ -760,8 +811,8 @@ paths:
         - name: name
           schema:
             type: string
-          in: path
           required: true
+          in: path
       responses:
         200:
           description: Switch deleted successfully

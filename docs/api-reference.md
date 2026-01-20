@@ -191,6 +191,31 @@ Response 500:
 }
 
 ---------------------------------------
+
+GET /vms/:name/network-adapters
+List network adapters of a virtual machine.
+
+Response 200:
+[
+  {
+    "Name": "Network Adapter",
+    "SwitchName": "LAN",
+    "Type": "Synthetic",
+    "MacAddress": "00155D012345",
+    "Status": "Ok"
+  }
+]
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 500:
+{
+  "error": "Failed to list network adapters",
+  "detail": "Hyper-V exception message"
+}
+
+---------------------------------------
 SWITCH ENDPOINTS
 ---------------------------------------
 

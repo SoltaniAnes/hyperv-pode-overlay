@@ -335,8 +335,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -387,8 +387,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "requestBody": {
@@ -480,8 +480,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -542,8 +542,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -604,8 +604,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           },
           {
             "name": "force",
@@ -707,8 +707,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           },
           {
             "name": "force",
@@ -800,8 +800,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -872,8 +872,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -920,6 +920,86 @@
           },
           "500": {
             "description": "Failed to resume VM",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vms/{name}/network-adapters": {
+      "get": {
+        "tags": [
+          "VMs"
+        ],
+        "summary": "List network adapters of a virtual machine",
+        "description": "Returns a list of all network adapters for a specific virtual machine",
+        "parameters": [
+          {
+            "name": "name",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of network adapters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Name": {
+                        "type": "string"
+                      },
+                      "SwitchName": {
+                        "type": "string"
+                      },
+                      "Type": {
+                        "type": "string"
+                      },
+                      "MacAddress": {
+                        "type": "string"
+                      },
+                      "Status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "Name",
+                      "Type",
+                      "MacAddress",
+                      "Status"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Internal server error"
+          },
+          "404": {
+            "description": "VM not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to list network adapters",
             "content": {
               "application/json": {
                 "schema": {
@@ -1079,8 +1159,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {
@@ -1131,8 +1211,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "requestBody": {
@@ -1211,8 +1291,8 @@
             "schema": {
               "type": "string"
             },
-            "in": "path",
-            "required": true
+            "required": true,
+            "in": "path"
           }
         ],
         "responses": {

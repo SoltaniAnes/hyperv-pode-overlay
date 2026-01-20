@@ -626,4 +626,49 @@
         'application/json' = 'ErrorSchema'
     }
 
+    #
+    # GET /vms/:name/network-adapters
+    #
+    $route = Add-PodeRoute -Method Get -Path '/vms/:name/network-adapters' -ScriptBlock {
+        try {
+            $name = $WebEvent.Parameters['name']
+
+            $adapters = Get-HvoVmNetworkAdapters -Name $name
+            if ($null -eq $adapters) {
+                Write-PodeJsonResponse -StatusCode 404 -Value @{
+                    error = "VM not found"
+                }
+                return
+            }
+
+            Write-PodeJsonResponse -Value $adapters
+        }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error = "Failed to list network adapters"
+                detail = $_.Exception.Message
+            }
+        }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'List network adapters of a virtual machine' -Description 'Returns a list of all network adapters for a specific virtual machine' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'name' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'List of network adapters' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Array -Properties @(
+            (New-PodeOAStringProperty -Name 'Name' -Required),
+            (New-PodeOAStringProperty -Name 'SwitchName'),
+            (New-PodeOAStringProperty -Name 'Type' -Required),
+            (New-PodeOAStringProperty -Name 'MacAddress' -Required),
+            (New-PodeOAStringProperty -Name 'Status' -Required)
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to list network adapters' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+
 }
