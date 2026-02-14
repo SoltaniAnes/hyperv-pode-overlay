@@ -55,7 +55,7 @@
         throw $_
  }
 }
-
+<#
 function Set-HvoVm {
     param(
         [Parameter(Mandatory)] [string] $Name,
@@ -164,6 +164,160 @@ function Set-HvoVm {
     }
 }
 
+#>
+
+# WIP: GUID-based refactor
+# Resource identification is migrating from Name to Id (GUID).
+# This section is part of the canonical Id-based API transition.
+
+
+
+function Set-HvoVm {
+    param(
+        [Parameter(Mandatory)] [Guid] $Id,
+
+        [int] $MemoryMB,
+        [int] $Vcpu,
+
+        # Declarative networking: optional on update
+        [array] $NetworkAdapters,
+
+        [string] $IsoPath
+    )
+
+    try {
+        $vm = Get-VM -Id $Id -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return @{ Updated = $false; Error = "VM not found"; Id = "$Id" }
+        }
+
+        if ($vm.State -ne "Off") {
+            return @{
+                Updated = $false
+                Error   = "VM must be Off to update"
+                State   = $vm.State.ToString()
+                Id      = "$Id"
+            }
+        }
+
+        $changed = $false
+
+        #
+        # MEMORY — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("MemoryMB")) {
+            $currentMB = [math]::Round($vm.MemoryStartup / 1MB)
+            if ($currentMB -ne $MemoryMB) {
+                Set-VMMemory -VMName $vm.Name -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # vCPU — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("Vcpu")) {
+            if ($vm.ProcessorCount -ne $Vcpu) {
+                Set-VMProcessor -VMName $vm.Name -Count $Vcpu -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        #
+        # NETWORK ADAPTERS — reconcile if provided (authoritative)
+        #
+        if ($PSBoundParameters.ContainsKey("NetworkAdapters")) {
+
+            # Normalize/validate desired adapters
+            $desired = @{}
+            foreach ($a in $NetworkAdapters) {
+                if (-not $a.name -or -not $a.switchName) {
+                    throw "Each networkAdapters item must contain 'name' and 'switchName'"
+                }
+
+                $n = [string]$a.name
+                $s = [string]$a.switchName
+
+                if ($desired.ContainsKey($n)) {
+                    throw "Duplicate network adapter name in request: '$n'"
+                }
+
+                $desired[$n] = $s
+            }
+
+            # Current adapters indexed by Name
+            $currentList = @(Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction Stop)
+            $current = @{}
+            foreach ($c in $currentList) {
+                $current[$c.Name] = $c
+            }
+
+            # Remove adapters not desired
+            foreach ($name in @($current.Keys)) {
+                if (-not $desired.ContainsKey($name)) {
+                    Remove-VMNetworkAdapter -VMNetworkAdapter $current[$name] -Confirm:$false -ErrorAction Stop
+                    $changed = $true
+                }
+            }
+
+            # Add or reconnect desired adapters
+            foreach ($name in $desired.Keys) {
+                $targetSwitch = $desired[$name]
+
+                if (-not $current.ContainsKey($name)) {
+                    Add-VMNetworkAdapter -VMName $vm.Name -Name $name -SwitchName $targetSwitch -ErrorAction Stop
+                    $changed = $true
+                    continue
+                }
+
+                $cur = $current[$name]
+                if ($cur.SwitchName -ne $targetSwitch) {
+                    Connect-VMNetworkAdapter -VMNetworkAdapter $cur -SwitchName $targetSwitch -ErrorAction Stop
+                    $changed = $true
+                }
+            }
+        }
+
+        #
+        # ISO — update only if different
+        #
+        if ($PSBoundParameters.ContainsKey("IsoPath")) {
+
+            if (-not (Test-Path $IsoPath)) {
+                return @{ Updated = $false; Error = "ISO file not found"; Path = $IsoPath; Id = "$Id" }
+            }
+
+            $currentIso = (Get-VMDvdDrive -VMName $vm.Name -ErrorAction SilentlyContinue)?.Path
+
+            if ($currentIso -ne $IsoPath) {
+                Get-VMDvdDrive -VMName $vm.Name | Remove-VMDvdDrive -ErrorAction Stop
+                Add-VMDvdDrive -VMName $vm.Name -Path $IsoPath -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        if (-not $changed) {
+            return @{
+                Updated   = $false
+                Unchanged = $true
+                Id        = "$Id"
+                Name      = $vm.Name
+            }
+        }
+
+        return @{
+            Updated = $true
+            Id      = "$Id"
+            Name    = $vm.Name
+        }
+    }
+    catch {
+        throw
+    }
+}
+
+
+
 
 
 function Get-HvoVm {
@@ -181,6 +335,36 @@ function Get-HvoVm {
         Uptime          = $vm.Uptime.ToString()
     }
 }
+
+# WIP: GUID-based refactor
+# Resource identification is migrating from Name to Id (GUID).
+# This section is part of the canonical Id-based API transition.
+
+
+function Get-HvoVmByName {
+    param(
+        [Parameter(Mandatory)] [string] $Name
+    )
+
+    $vms = @(Get-VM -Name $Name -ErrorAction SilentlyContinue)
+
+    if (-not $vms -or $vms.Count -eq 0) {
+        return @()
+    }
+
+    return $vms | ForEach-Object {
+        [PSCustomObject]@{
+            Id             = $_.Id.Guid
+            Name           = $_.Name
+            State          = $_.State.ToString()
+            CPUUsage       = $_.CPUUsage
+            MemoryAssigned = $_.MemoryAssigned
+            Uptime         = $_.Uptime.ToString()
+        }
+    }
+}
+
+
 
 function Get-HvoVms {
     $vms = Get-VM -ErrorAction SilentlyContinue
