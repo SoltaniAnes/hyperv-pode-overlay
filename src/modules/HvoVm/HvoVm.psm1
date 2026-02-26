@@ -8,8 +8,8 @@ function New-HvoVm {
         [Parameter(Mandatory)] [string] $SwitchName,
         [string] $IsoPath
     )
-   try{
-    if (-not (Test-Path $DiskPath)) {
+    try {
+        if (-not (Test-Path $DiskPath)) {
             New-Item -ItemType Directory -Path $DiskPath -Force | Out-Null
         }
 
@@ -44,123 +44,8 @@ function New-HvoVm {
     }
     catch {
         throw $_
- }
-}
-<#
-function Set-HvoVm {
-    param(
-        [Parameter(Mandatory)] [string] $Id,
-        [int] $MemoryMB,
-        [int] $Vcpu,
-        [string] $SwitchName,
-        [string] $IsoPath
-    )
-
-    try {
-        try { $guid = [guid]$Id } catch { return @{ Updated = $false; Error = "VM not found" } }
-        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
-        if (-not $vm) {
-            return @{ Updated = $false; Error = "VM not found" }
-        }
-
-        $vmName = $vm.Name
-
-        if ($vm.State -ne "Off") {
-            return @{
-                Updated = $false
-                Error   = "VM must be Off to update"
-                State   = $vm.State.ToString()
-            }
-        }
-
-        $changed = $false
-
-        #
-        # MEMORY — update only if different
-        #
-        if ($PSBoundParameters.ContainsKey("MemoryMB")) {
-            $currentMB = [math]::Round($vm.MemoryStartup / 1MB)
-            if ($currentMB -ne $MemoryMB) {
-                Set-VMMemory -VMName $vmName -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
-                $changed = $true
-            }
-        }
-
-        #
-        # vCPU — update only if different
-        #
-        if ($PSBoundParameters.ContainsKey("Vcpu")) {
-            if ($vm.ProcessorCount -ne $Vcpu) {
-                Set-VMProcessor -VMName $vmName -Count $Vcpu -ErrorAction Stop
-                $changed = $true
-            }
-        }
-
-        #
-        # SWITCH — update only if different
-        #
-        if ($PSBoundParameters.ContainsKey("SwitchName")) {
-            $currentNics = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue
-            # Get-VMNetworkAdapter returns an array, take the first adapter
-            $currentSwitch = $null
-            if ($currentNics) {
-                $firstNic = if ($currentNics -is [Array]) { $currentNics[0] } else { $currentNics }
-                if ($firstNic) {
-                    $currentSwitch = $firstNic.SwitchName
-                }
-            }
-
-            if ($currentSwitch -ne $SwitchName) {
-                Get-VMNetworkAdapter -VMName $vmName |
-                    Remove-VMNetworkAdapter -Confirm:$false -ErrorAction Stop
-
-                Add-VMNetworkAdapter -VMName $vmName -SwitchName $SwitchName -ErrorAction Stop
-                $changed = $true
-            }
-        }
-
-        #
-        # ISO — update only if different
-        #
-        if ($PSBoundParameters.ContainsKey("IsoPath")) {
-
-            if (-not (Test-Path $IsoPath)) {
-                return @{ Updated = $false; Error = "ISO file not found"; Path = $IsoPath }
-            }
-
-            $currentIso = (Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue)?.Path
-
-            if ($currentIso -ne $IsoPath) {
-                Get-VMDvdDrive -VMName $vmName | Remove-VMDvdDrive -ErrorAction Stop
-                Add-VMDvdDrive -VMName $vmName -Path $IsoPath -ErrorAction Stop
-                $changed = $true
-            }
-        }
-
-        #
-        # No changes? → return idempotent response
-        #
-        if (-not $changed) {
-            return @{
-                Updated   = $false
-                Unchanged = $true
-                Name      = $vmName
-                Id        = $vm.Id.ToString()
-            }
-        }
-
-        return @{
-            Updated = $true
-            Name    = $vmName
-            Id      = $vm.Id.ToString()
-        }
-    }
-    catch {
-        throw $_
     }
 }
-
-#>
 
 # WIP: GUID-based refactor
 # Resource identification is migrating from Name to Id (GUID).
