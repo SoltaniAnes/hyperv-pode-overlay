@@ -10,7 +10,9 @@ tests/
 │   ├── HvoVm.Tests.ps1
 │   ├── HvoSwitch.Tests.ps1
 │   └── utils.Tests.ps1
-├── run-tests.ps1          # Test execution script
+├── reports/               # API test reports (api-test-report-*.txt)
+├── run-tests.ps1          # Unit/integration test execution script
+├── run-api-tests.ps1      # Full API scenario tests (server must be running)
 └── analyze-coverage.ps1   # Coverage analysis script
 ```
 
@@ -26,6 +28,36 @@ Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
 ```
 
 ## Running Tests
+
+### Tests API (scénario complet)
+
+Les tests API vérifient l’ensemble des endpoints contre un serveur déjà démarré (localhost par défaut). Ils créent des ressources de test (switch et VM) avec le préfixe `hvo-test-{type}-<YYYYMMDDHHmm>`, puis les suppriment en fin de run.
+
+**Prérequis**
+
+- Le serveur API doit être démarré (ex. `.\src\server.ps1`).
+- Hyper-V disponible sur la machine où tourne le serveur.
+- PowerShell 7 (pour `Invoke-WebRequest -SkipHttpErrorCheck`).
+
+**Lancement**
+
+```powershell
+.\tests\run-api-tests.ps1
+```
+
+Optionnel : autre URL ou chemin de disque pour les VMs de test :
+
+```powershell
+.\tests\run-api-tests.ps1 -BaseUrl 'http://localhost:8080' -VmDiskPath 'C:\ProgramData\hvo-api-test'
+```
+
+Le script demande une confirmation que le serveur est démarré, vérifie `GET /health`, puis enchaîne :
+
+1. **Phase 1** : `GET /health`, `GET /openapi.json`
+2. **Phase 2** : CRUD switches (GET, POST, GET by id/name, PUT, DELETE)
+3. **Phase 3** : Scénario VM (liste, création, GET, start, stop, network-adapters, PUT, DELETE), puis suppression du switch de test
+
+Un **rapport** est généré dans `tests/reports/api-test-report-<YYYYMMDDHHmm>.txt`. En cas d’échecs, le rapport contient une section **Remise en condition initiale Hyper-V** avec les commandes PowerShell pour supprimer les ressources de test restantes (VMs et switches dont le nom commence par `hvo-test-`).
 
 ### All unit tests
 

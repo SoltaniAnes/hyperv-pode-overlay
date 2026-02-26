@@ -1,4 +1,4 @@
-﻿function New-HvoVm {
+function New-HvoVm {
     param(
         [Parameter(Mandatory)] [string] $Name,
         [Parameter(Mandatory)] [int]    $MemoryMB,
@@ -9,16 +9,6 @@
         [string] $IsoPath
     )
    try{
-
-     # If VM already exists → idempotent result
-    $existing = Get-VM -Name $Name -ErrorAction SilentlyContinue
-    if ($existing) {
-        return @{
-            Exists = $true
-            Name   = $existing.Name
-        }
-    }
-
     if (-not (Test-Path $DiskPath)) {
             New-Item -ItemType Directory -Path $DiskPath -Force | Out-Null
         }
@@ -36,19 +26,20 @@
             -SwitchName $SwitchName `
             -ErrorAction Stop
 
-        Set-VMProcessor -VMName $Name -Count $Vcpu -ErrorAction Stop
+        Set-VMProcessor -VMName $vm.Name -Count $Vcpu -ErrorAction Stop
 
         if ($IsoPath) {
             if (-not (Test-Path $IsoPath)) {
                 throw "ISO path '$IsoPath' not found"
             }
 
-            Add-VMDvdDrive -VMName $Name -Path $IsoPath -ErrorAction Stop | Out-Null
+            Add-VMDvdDrive -VMName $vm.Name -Path $IsoPath -ErrorAction Stop | Out-Null
         }
 
-         return @{
-        Exists = $false
-        Name   = $vm.Name
+        $idValue = if ($vm.Id) { $vm.Id.ToString() } else { $null }
+        return @{
+            Name = $vm.Name
+            Id   = $idValue
         }
     }
     catch {
@@ -58,7 +49,7 @@
 <#
 function Set-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Id,
         [int] $MemoryMB,
         [int] $Vcpu,
         [string] $SwitchName,
@@ -66,10 +57,13 @@ function Set-HvoVm {
     )
 
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return @{ Updated = $false; Error = "VM not found" } }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
         if (-not $vm) {
             return @{ Updated = $false; Error = "VM not found" }
         }
+
+        $vmName = $vm.Name
 
         if ($vm.State -ne "Off") {
             return @{
@@ -87,7 +81,7 @@ function Set-HvoVm {
         if ($PSBoundParameters.ContainsKey("MemoryMB")) {
             $currentMB = [math]::Round($vm.MemoryStartup / 1MB)
             if ($currentMB -ne $MemoryMB) {
-                Set-VMMemory -VMName $Name -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
+                Set-VMMemory -VMName $vmName -StartupBytes ($MemoryMB * 1MB) -ErrorAction Stop
                 $changed = $true
             }
         }
@@ -97,7 +91,7 @@ function Set-HvoVm {
         #
         if ($PSBoundParameters.ContainsKey("Vcpu")) {
             if ($vm.ProcessorCount -ne $Vcpu) {
-                Set-VMProcessor -VMName $Name -Count $Vcpu -ErrorAction Stop
+                Set-VMProcessor -VMName $vmName -Count $Vcpu -ErrorAction Stop
                 $changed = $true
             }
         }
@@ -106,7 +100,7 @@ function Set-HvoVm {
         # SWITCH — update only if different
         #
         if ($PSBoundParameters.ContainsKey("SwitchName")) {
-            $currentNics = Get-VMNetworkAdapter -VMName $Name -ErrorAction SilentlyContinue
+            $currentNics = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue
             # Get-VMNetworkAdapter returns an array, take the first adapter
             $currentSwitch = $null
             if ($currentNics) {
@@ -117,10 +111,10 @@ function Set-HvoVm {
             }
 
             if ($currentSwitch -ne $SwitchName) {
-                Get-VMNetworkAdapter -VMName $Name |
+                Get-VMNetworkAdapter -VMName $vmName |
                     Remove-VMNetworkAdapter -Confirm:$false -ErrorAction Stop
 
-                Add-VMNetworkAdapter -VMName $Name -SwitchName $SwitchName -ErrorAction Stop
+                Add-VMNetworkAdapter -VMName $vmName -SwitchName $SwitchName -ErrorAction Stop
                 $changed = $true
             }
         }
@@ -134,11 +128,11 @@ function Set-HvoVm {
                 return @{ Updated = $false; Error = "ISO file not found"; Path = $IsoPath }
             }
 
-            $currentIso = (Get-VMDvdDrive -VMName $Name -ErrorAction SilentlyContinue)?.Path
+            $currentIso = (Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue)?.Path
 
             if ($currentIso -ne $IsoPath) {
-                Get-VMDvdDrive -VMName $Name | Remove-VMDvdDrive -ErrorAction Stop
-                Add-VMDvdDrive -VMName $Name -Path $IsoPath -ErrorAction Stop
+                Get-VMDvdDrive -VMName $vmName | Remove-VMDvdDrive -ErrorAction Stop
+                Add-VMDvdDrive -VMName $vmName -Path $IsoPath -ErrorAction Stop
                 $changed = $true
             }
         }
@@ -150,13 +144,15 @@ function Set-HvoVm {
             return @{
                 Updated   = $false
                 Unchanged = $true
-                Name      = $Name
+                Name      = $vmName
+                Id        = $vm.Id.ToString()
             }
         }
 
         return @{
             Updated = $true
-            Name    = $Name
+            Name    = $vmName
+            Id      = $vm.Id.ToString()
         }
     }
     catch {
@@ -321,13 +317,20 @@ function Set-HvoVm {
 
 
 function Get-HvoVm {
-    param([string]$Name)
+    param(
+        [Parameter(Mandatory)]
+        [string] $Id
+    )
 
-    $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+    try { $guid = [guid]$Id } catch { return $null }
+    $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
     if (-not $vm) {
-        return $null }
+        return $null
+    }
 
+    $idValue = if ($vm.Id) { $vm.Id.ToString() } else { $null }
     return [PSCustomObject]@{
+        Id              = $idValue
         Name            = $vm.Name
         State           = $vm.State.ToString()
         CPUUsage        = $vm.CPUUsage
@@ -369,7 +372,35 @@ function Get-HvoVmByName {
 function Get-HvoVms {
     $vms = Get-VM -ErrorAction SilentlyContinue
     return $vms | ForEach-Object {
+        $idValue = if ($_.Id) { $_.Id.ToString() } else { $null }
         [PSCustomObject]@{
+            Id              = $idValue
+            Name            = $_.Name
+            State           = $_.State.ToString()
+            CPUUsage        = $_.CPUUsage
+            MemoryAssigned  = $_.MemoryAssigned
+            Uptime          = $_.Uptime.ToString()
+        }
+    }
+}
+
+function Get-HvoVmByName {
+    param(
+        [Parameter(Mandatory)]
+        [string] $Name
+    )
+
+    $vms = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $Name }
+    if (-not $vms) {
+        return @()
+    }
+    if ($vms -isnot [Array]) {
+        $vms = @($vms)
+    }
+    return $vms | ForEach-Object {
+        $idValue = if ($_.Id) { $_.Id.ToString() } else { $null }
+        [PSCustomObject]@{
+            Id              = $idValue
             Name            = $_.Name
             State           = $_.State.ToString()
             CPUUsage        = $_.CPUUsage
@@ -381,49 +412,51 @@ function Get-HvoVms {
 
 function Start-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)] [string] $Id
     )
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) {
             return $null
         }
 
+        $vmName = $vm.Name
         $vmState = $vm.State.ToString()
 
         if ($vmState -eq "Running") {
             return @{
                 Started = $false
                 AlreadyRunning = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Off") {
-            Start-VM -Name $Name -ErrorAction Stop
+            Start-VM -Name $vmName -ErrorAction Stop
             return @{
                 Started = $true
                 AlreadyRunning = $false
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Paused") {
-            Resume-VM -Name $Name -ErrorAction Stop
+            Resume-VM -Name $vmName -ErrorAction Stop
             return @{
                 Started = $true
                 Resumed = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Saved") {
-            Start-VM -Name $Name -ErrorAction Stop
+            Start-VM -Name $vmName -ErrorAction Stop
             return @{
                 Started = $true
                 Resumed = $false
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
@@ -442,48 +475,50 @@ function Start-HvoVm {
 
 function Stop-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Id,
         [switch] $Force
     )
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) {
             return $null
         }
 
+        $vmName = $vm.Name
         $vmState = $vm.State.ToString()
 
         if ($vmState -eq "Off") {
             return @{
                 Stopped = $false
                 AlreadyStopped = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Running") {
             if ($Force) {
-                Stop-VM -Name $Name -Force -ErrorAction Stop
+                Stop-VM -Name $vmName -Force -ErrorAction Stop
             }
             else {
                 # Check the presence and activation of the shutdown integration service
-                $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
+                $shutdownService = Get-VMIntegrationService -VMName $vmName -Name "Shutdown" -ErrorAction SilentlyContinue
 
                 if (-not $shutdownService) {
-                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$Name'. Use the 'force' parameter for a forced shutdown."
+                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$vmName'. Use the 'force' parameter for a forced shutdown."
                 }
 
                 if (-not $shutdownService.Enabled) {
-                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$Name'. Use the 'force' parameter for a forced shutdown."
+                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$vmName'. Use the 'force' parameter for a forced shutdown."
                 }
 
-                Stop-VM -Name $Name -ErrorAction Stop
+                Stop-VM -Name $vmName -ErrorAction Stop
             }
             return @{
                 Stopped = $true
                 AlreadyStopped = $false
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
@@ -502,48 +537,50 @@ function Stop-HvoVm {
 
 function Restart-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Id,
         [switch] $Force
     )
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) {
             return $null
         }
 
+        $vmName = $vm.Name
         $vmState = $vm.State.ToString()
 
         if ($vmState -eq "Off") {
             # Idempotence: if the VM is stopped, start it
-            Start-VM -Name $Name -ErrorAction Stop
+            Start-VM -Name $vmName -ErrorAction Stop
             return @{
                 Restarted = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Running") {
             if ($Force) {
-                Restart-VM -Name $Name -Force -ErrorAction Stop
+                Restart-VM -Name $vmName -Force -ErrorAction Stop
             }
             else {
                 # Check the presence and activation of the shutdown integration service
-                $shutdownService = Get-VMIntegrationService -VMName $Name -Name "Shutdown" -ErrorAction SilentlyContinue
+                $shutdownService = Get-VMIntegrationService -VMName $vmName -Name "Shutdown" -ErrorAction SilentlyContinue
 
                 if (-not $shutdownService) {
-                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$Name'. Use the 'force' parameter for a forced restart."
+                    throw "SHUTDOWN_SERVICE_NOT_AVAILABLE: The shutdown integration service is not available for VM '$vmName'. Use the 'force' parameter for a forced restart."
                 }
 
                 if (-not $shutdownService.Enabled) {
-                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$Name'. Use the 'force' parameter for a forced restart."
+                    throw "SHUTDOWN_SERVICE_NOT_ENABLED: The shutdown integration service is not enabled for VM '$vmName'. Use the 'force' parameter for a forced restart."
                 }
 
-                Restart-VM -Name $Name -ErrorAction Stop
+                Restart-VM -Name $vmName -ErrorAction Stop
             }
             return @{
                 Restarted = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
@@ -562,31 +599,33 @@ function Restart-HvoVm {
 
 function Suspend-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)] [string] $Id
     )
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) {
             return $null
         }
 
+        $vmName = $vm.Name
         $vmState = $vm.State.ToString()
 
         if ($vmState -eq "Paused") {
             return @{
                 Suspended = $false
                 AlreadySuspended = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Running") {
-            Suspend-VM -Name $Name -ErrorAction Stop
+            Suspend-VM -Name $vmName -ErrorAction Stop
             return @{
                 Suspended = $true
                 AlreadySuspended = $false
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
@@ -605,36 +644,38 @@ function Suspend-HvoVm {
 
 function Resume-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)] [string] $Id
     )
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) {
             return $null
         }
 
+        $vmName = $vm.Name
         $vmState = $vm.State.ToString()
 
         if ($vmState -eq "Running") {
             return @{
                 Resumed = $false
                 AlreadyRunning = $true
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Paused") {
-            Resume-VM -Name $Name -ErrorAction Stop
+            Resume-VM -Name $vmName -ErrorAction Stop
             return @{
                 Resumed = $true
                 AlreadyRunning = $false
-                Name = $vm.Name
+                Name = $vmName
             }
         }
 
         if ($vmState -eq "Off") {
-            throw "Cannot resume VM '$Name' because it is stopped (Off). Resume is only applicable to paused VMs. To start a stopped VM, use Start-VM."
+            throw "Cannot resume VM '$vmName' because it is stopped (Off). Resume is only applicable to paused VMs. To start a stopped VM, use Start-VM."
         }
         throw "VM is in an invalid state for resuming: $vmState"
     }
@@ -652,38 +693,39 @@ function Resume-HvoVm {
 
 function Remove-HvoVm {
     param(
-        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Id,
         [bool] $RemoveDisks
     )
     try {
-
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $false }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
 
         if (-not $vm) { return $false }
 
+        $vmName = $vm.Name
 
         if ($vm.State -in @("Running", "Paused")) {
-            Stop-VM -Name $Name -Force -ErrorAction Stop
+            Stop-VM -Name $vmName -Force -ErrorAction Stop
         }
 
-        $snaps = Get-VMSnapshot -VMName $Name -ErrorAction SilentlyContinue
+        $snaps = Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue
         if ($snaps) {
-            Remove-VMSnapshot -VMName $Name -ErrorAction Stop
+            Remove-VMSnapshot -VMName $vmName -ErrorAction Stop
         }
 
-        $dvdDrives = Get-VMDvdDrive -VMName $Name -ErrorAction SilentlyContinue
+        $dvdDrives = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
         foreach ($dvd in $dvdDrives) {
-            Remove-VMDvdDrive -VMName $Name `
+            Remove-VMDvdDrive -VMName $vmName `
                 -ControllerNumber $dvd.ControllerNumber `
                 -ControllerLocation $dvd.ControllerLocation -ErrorAction Stop
         }
 
         $diskPaths = @()
         if ($RemoveDisks) {
-            $diskPaths = (Get-VMHardDiskDrive -VMName $Name -ErrorAction SilentlyContinue).Path
+            $diskPaths = (Get-VMHardDiskDrive -VMName $vmName -ErrorAction SilentlyContinue).Path
         }
 
-        Remove-VM -Name $Name -Force -ErrorAction Stop
+        Remove-VM -Name $vmName -Force -ErrorAction Stop
 
         foreach ($d in $diskPaths) {
             if (Test-Path $d) {
@@ -706,16 +748,17 @@ function Remove-HvoVm {
 
 function Get-HvoVmNetworkAdapters {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)] [string] $Id
     )
 
     try {
-        $vm = Get-VM -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
         if (-not $vm) {
             return $null
         }
 
-        $adapters = Get-VMNetworkAdapter -VMName $Name -ErrorAction SilentlyContinue
+        $adapters = Get-VMNetworkAdapter -VM $vm -ErrorAction SilentlyContinue
         if (-not $adapters) {
             return @()
         }
@@ -727,8 +770,11 @@ function Get-HvoVmNetworkAdapters {
 
         return $adapters | ForEach-Object {
             $type = if ($_.IsLegacy) { "Legacy" } else { "Synthetic" }
+            # Expose stable adapter id: .Id if present (Hyper-V), else .InstanceId
+            $adapterId = if ($_.Id) { $_.Id.ToString() } elseif ($_.InstanceId) { $_.InstanceId.ToString() } else { $null }
 
             [PSCustomObject]@{
+                Id         = $adapterId
                 Name       = $_.Name
                 SwitchName = $_.SwitchName
                 Type       = $type
@@ -744,6 +790,80 @@ function Get-HvoVmNetworkAdapters {
         }
 
         # Propagate the exception without display - the caller will handle the error
+        throw
+    }
+}
+
+function Add-HvoVmNetworkAdapter {
+    param(
+        [Parameter(Mandatory)] [string] $Id,
+        [Parameter(Mandatory)] [string] $SwitchName
+    )
+
+    try {
+        try { $guid = [guid]$Id } catch { return $null }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return $null
+        }
+
+        $newAdapter = Add-VMNetworkAdapter -VM $vm -SwitchName $SwitchName -ErrorAction Stop
+        if (-not $newAdapter) {
+            return $null
+        }
+        $adapterId = if ($newAdapter.Id) { $newAdapter.Id.ToString() } elseif ($newAdapter.InstanceId) { $newAdapter.InstanceId.ToString() } else { $null }
+        return @{
+            Id   = $adapterId
+            Name = $newAdapter.Name
+        }
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if ($msg -match 'not found|does not exist|Cannot find') {
+            return $null
+        }
+        throw
+    }
+}
+
+function Remove-HvoVmNetworkAdapter {
+    param(
+        [Parameter(Mandatory)] [string] $VMId,
+        [Parameter(Mandatory)] [string] $AdapterId
+    )
+
+    try {
+        try { $guid = [guid]$VMId } catch { return $false }
+        $vm = Get-VM -Id $guid -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return $false
+        }
+
+        $adapters = Get-VMNetworkAdapter -VM $vm -ErrorAction SilentlyContinue
+        if (-not $adapters) {
+            return $false
+        }
+        if ($adapters -isnot [Array]) {
+            $adapters = @($adapters)
+        }
+
+        $adapter = $adapters | Where-Object {
+            $aid = if ($_.Id) { $_.Id.ToString() } elseif ($_.InstanceId) { $_.InstanceId.ToString() } else { $null }
+            $aid -eq $AdapterId
+        } | Select-Object -First 1
+
+        if (-not $adapter) {
+            return $false
+        }
+
+        Remove-VMNetworkAdapter -VMNetworkAdapter $adapter -ErrorAction Stop
+        return $true
+    }
+    catch {
+        $msg = $_.Exception.Message
+        if ($msg -match 'not found|does not exist|Cannot find') {
+            return $false
+        }
         throw
     }
 }

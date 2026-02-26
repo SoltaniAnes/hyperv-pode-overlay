@@ -3,11 +3,13 @@
 Base URL:
 http://<host>:8080
 
-This API exposes a clean, idempotent, Terraform-compatible interface for managing:
+This API exposes a Terraform-compatible interface for managing:
 - Hyper-V Virtual Machines
 - Hyper-V Virtual Switches
 
 All responses are JSON.
+
+**Identification by Id:** Resources (VMs, switches, network adapters) are identified by a stable **Id** (GUID). All list and detail responses include an `Id` field. Use **GET /vms/:id** or **GET /switches/:id** to target a resource by Id. Use **GET /vms/by-name/:name** or **GET /switches/by-name/:name** to discover resources by name (returns an array, possibly empty). The path parameter **:name** for targeting has been removed; use **:id** for all operations (get, update, delete, actions).
 
 ---------------------------------------
 VM ENDPOINTS
@@ -19,6 +21,7 @@ List all VMs.
 Response 200:
 [
   {
+    "Id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     "Name": "vm1",
     "State": "Running",
     "CPUUsage": 1,
@@ -29,11 +32,12 @@ Response 200:
 
 ---------------------------------------
 
-GET /vms/:name
-Get details about a single VM.
+GET /vms/:id
+Get details about a single VM by its GUID.
 
 Response 200:
 {
+  "Id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   "Name": "vm1",
   "State": "Off",
   "CPUUsage": 0,
@@ -46,10 +50,25 @@ Response 404:
 
 ---------------------------------------
 
-POST /vms
-Create a virtual machine.
+GET /vms/by-name/:name
+Get all VMs whose name matches. Returns an array (0, 1 or more elements). Always 200.
 
-This operation is **idempotent**.
+Response 200:
+[
+  {
+    "Id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "Name": "vm1",
+    "State": "Running",
+    "CPUUsage": 0,
+    "MemoryAssigned": 2147483648,
+    "Uptime": "00:01:00"
+  }
+]
+
+---------------------------------------
+
+POST /vms
+Create a virtual machine. Each call creates a **new** resource and returns 201 with **id**. Names may be duplicated; the truth is in the Id.
 
 Request body:
 {
@@ -64,46 +83,47 @@ Request body:
 
 Responses:
 
-If the VM was created:
 201 Created
-{ "created": "vm1" }
+{ "created": "vm1", "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
 
-If the VM already exists:
-200 OK
-{ "exists": "vm1" }
-
-If JSON is invalid:
 400 Bad Request
 { "error": "Invalid JSON" }
 
-If Hyper-V operation fails:
 500 Internal Server Error
 { "error": "Failed to create VM", "detail": "Hyper-V message..." }
 
 ---------------------------------------
 
-DELETE /vms/:name
-Delete a VM.  
-Operation is **idempotent**.
+PUT /vms/:id
+Update a VM (memory, vCPU, switch, ISO). VM must be stopped.
 
-Response 200:
-{ "deleted": "vm1" }
+Response 200 (updated):
+{ "updated": true, "name": "vm1", "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
+
+Response 200 (unchanged):
+{ "unchanged": true, "name": "vm1", "id": "..." }
 
 Response 404:
 { "error": "VM not found" }
 
-Response 500:
-{
-  "error": "Failed to delete VM",
-  "detail": "Hyper-V exception message"
-}
+Response 409:
+{ "error": "VM must be Off to update", "State": "Running" }
 
 ---------------------------------------
 
-POST /vms/:name/start
-Start a virtual machine.
+DELETE /vms/:id
+Delete a VM by Id.
 
-This operation is **idempotent**.
+Response 200:
+{ "deleted": "<id>", "id": "<id>" }
+
+Response 404:
+{ "error": "VM not found" }
+
+---------------------------------------
+
+POST /vms/:id/start
+Start a virtual machine by Id.
 
 Response 200:
 { "started": "vm1" }
@@ -111,27 +131,12 @@ Response 200:
 Response 404:
 { "error": "VM not found" }
 
-Response 500:
-{
-  "error": "Failed to start VM",
-  "detail": "Hyper-V exception message"
-}
-
 ---------------------------------------
 
-POST /vms/:name/stop
-Stop a virtual machine.
+POST /vms/:id/stop
+Stop a virtual machine by Id.
 
-This operation is **idempotent**.
-
-The `force` parameter can be provided either as a query parameter or in the request body:
-- Query parameter: `POST /vms/:name/stop?force=true`
-- Request body: `{ "force": true }`
-
-If `force` is not provided or is `false`, the VM will be gracefully shut down.
-If `force` is `true`, the VM will be forcefully stopped.
-
-**Note:** When `force` is `false` or not provided, the shutdown integration service must be available and enabled on the VM. If it is not, a 422 error will be returned.
+The `force` parameter can be provided as query `?force=true` or in the request body `{ "force": true }`. When `force` is false or omitted, the shutdown integration service must be available and enabled; otherwise use force or a 422 is returned.
 
 Response 200:
 { "stopped": "vm1" }
@@ -143,34 +148,12 @@ Response 409:
 { "error": "VM is already stopped" }
 
 Response 422:
-{
-  "error": "Shutdown integration service not available or not enabled",
-  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un arrêt forcé."
-}
-
-Response 500:
-{
-  "error": "Failed to stop VM",
-  "detail": "Hyper-V exception message"
-}
+{ "error": "Shutdown integration service not available or not enabled", "detail": "..." }
 
 ---------------------------------------
 
-POST /vms/:name/restart
-Restart a virtual machine.
-
-This operation is **idempotent**.
-
-The `force` parameter can be provided either as a query parameter or in the request body:
-- Query parameter: `POST /vms/:name/restart?force=true`
-- Request body: `{ "force": true }`
-
-If `force` is not provided or is `false`, the VM will be gracefully restarted.
-If `force` is `true`, the VM will be forcefully restarted.
-
-**Note:** When `force` is `false` or not provided, the shutdown integration service must be available and enabled on the VM. If it is not, a 422 error will be returned.
-
-If the VM is already stopped, it will be started (idempotent behavior).
+POST /vms/:id/restart
+Restart a virtual machine by Id. Same `force` behavior as stop.
 
 Response 200:
 { "restarted": "vm1" }
@@ -178,26 +161,43 @@ Response 200:
 Response 404:
 { "error": "VM not found" }
 
-Response 422:
-{
-  "error": "Shutdown integration service not available or not enabled",
-  "detail": "Le service d'intégration d'arrêt (Shutdown) n'est pas disponible pour la VM 'vm1'. Utilisez le paramètre 'force' pour un redémarrage forcé."
-}
+---------------------------------------
 
-Response 500:
-{
-  "error": "Failed to restart VM",
-  "detail": "Hyper-V exception message"
-}
+POST /vms/:id/suspend
+Suspend (pause) a virtual machine by Id.
+
+Response 200:
+{ "suspended": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 409:
+{ "error": "VM is already suspended" }
 
 ---------------------------------------
 
-GET /vms/:name/network-adapters
-List network adapters of a virtual machine.
+POST /vms/:id/resume
+Resume a suspended virtual machine by Id.
+
+Response 200:
+{ "resumed": "vm1" }
+
+Response 404:
+{ "error": "VM not found" }
+
+Response 409:
+{ "error": "VM is already running" }
+
+---------------------------------------
+
+GET /vms/:id/network-adapters
+List network adapters of a VM by Id. Each adapter includes an **Id** (GUID or InstanceId).
 
 Response 200:
 [
   {
+    "Id": "ffffffff-0000-0000-0000-000000000001",
     "Name": "Network Adapter",
     "SwitchName": "LAN",
     "Type": "Synthetic",
@@ -209,11 +209,30 @@ Response 200:
 Response 404:
 { "error": "VM not found" }
 
-Response 500:
-{
-  "error": "Failed to list network adapters",
-  "detail": "Hyper-V exception message"
-}
+---------------------------------------
+
+POST /vms/:id/network-adapters
+Add a network adapter to a VM by Id.
+
+Request body:
+{ "switchName": "LAN" }
+
+Response 201:
+{ "created": "Network Adapter", "id": "<adapter-guid>" }
+
+Response 404:
+{ "error": "VM not found" }
+
+---------------------------------------
+
+DELETE /vms/:id/network-adapters/:adapterId
+Remove a network adapter from a VM by VM Id and adapter Id.
+
+Response 200:
+{ "deleted": "<adapterId>", "id": "<adapterId>" }
+
+Response 404:
+{ "error": "VM or network adapter not found" }
 
 ---------------------------------------
 SWITCH ENDPOINTS
@@ -224,16 +243,17 @@ List all virtual switches.
 
 Response 200:
 [
-  { "Name": "LAN", "SwitchType": "Internal", "Notes": "" }
+  { "Id": "cccccccc-dddd-eeee-ffff-000000000001", "Name": "LAN", "SwitchType": "Internal", "Notes": "" }
 ]
 
 ---------------------------------------
 
-GET /switches/:name
-Get a specific virtual switch.
+GET /switches/:id
+Get a specific virtual switch by Id.
 
 Response 200:
 {
+  "Id": "cccccccc-dddd-eeee-ffff-000000000001",
   "Name": "LAN",
   "SwitchType": "Internal",
   "Notes": ""
@@ -244,11 +264,18 @@ Response 404:
 
 ---------------------------------------
 
-POST /switches
-Create a virtual switch.  
-Operation is **idempotent**.
+GET /switches/by-name/:name
+Get all switches whose name matches. Returns an array. Always 200.
 
-Valid request bodies:
+Response 200:
+[
+  { "Id": "...", "Name": "LAN", "SwitchType": "Internal", "Notes": "" }
+]
+
+---------------------------------------
+
+POST /switches
+Create a virtual switch. Each call creates a **new** resource and returns 201 with **id**.
 
 Internal:
 { "name": "LAN", "type": "Internal" }
@@ -263,84 +290,36 @@ External:
   "netAdapterName": "Ethernet"
 }
 
-Responses:
+Response 201:
+{ "created": "LAN", "id": "cccccccc-dddd-eeee-ffff-000000000001" }
 
-If the switch was created:
-201 Created
-{ "created": "LAN" }
-
-If it already exists:
-200 OK
-{ "exists": "LAN" }
-
-If JSON is invalid:
-400 Bad Request
+Response 400:
 { "error": "Invalid JSON" }
 
-If Hyper-V fails:
-500 Internal Server Error
+Response 500:
 { "error": "Failed to create switch", "detail": "Hyper-V message" }
 
 ---------------------------------------
 
-PUT /switches/:name
-Update an existing virtual switch.
+PUT /switches/:id
+Update an existing virtual switch by Id (notes only).
 
-Only the "notes" field can be updated.
-All other properties (name, type, netAdapterName) are immutable in Hyper-V and require switch recreation.
-Operation is idempotent.
+Request body:
+{ "notes": "Terraform-managed switch" }
 
-Valid request body:
-{
-"notes": "Terraform-managed switch"
-}
+Response 200:
+{ "updated": "LAN", "id": "..." }
 
-If no updatable fields are provided, the request is accepted but no changes are applied.
-
-Responses:
-
-200 OK — Switch updated
-{
-"updated": "LAN",
-"notes": "Terraform-managed switch"
-}
-
-200 OK — No change (notes already identical)
-{
-"updated": "LAN",
-"notes": "Terraform-managed switch"
-}
-
-404 Not Found
-{
-"error": "Switch not found"
-}
-
-400 Bad Request
-{
-"error": "Invalid JSON"
-}
-
-500 Internal Server Error
-{
-"error": "Failed to update switch",
-"detail": "Hyper-V message"
-}
-
-Notes:
-
-Only "notes" is updatable because Hyper-V does not support modifying type or network adapter after switch creation.
-
-Immutable fields should be handled by clients (e.g., Terraform marks them with ForceNew).
+Response 404:
+{ "error": "Switch not found" }
 
 ---------------------------------------
 
-DELETE /switches/:name
-Delete a virtual switch.  
-Operation is **idempotent**.
+DELETE /switches/:id
+Delete a virtual switch by Id.
 
 Response 200:
-{ "deleted": "LAN" }
+{ "deleted": "<id>", "id": "<id>" }
 
 Response 404:
 { "error": "Switch not found" }
@@ -360,15 +339,10 @@ All errors follow the same structure:
 IDEMPOTENCY RULES
 ---------------------------------------
 
-POST /vms        = idempotent (existing VM → 200 OK)
-DELETE /vms      = idempotent (missing VM → 404)
-POST /vms/:name/start = idempotent (already running VM → 200 OK)
-POST /vms/:name/stop = idempotent (already running VM → 200 OK)
-POST /vms/:name/restart = idempotent (stopped VM → starts, running VM → restarts)
-
-POST /switches   = idempotent (existing switch → 200 OK)
-DELETE /switches = idempotent (missing switch → 404)
+- DELETE /vms/:id, DELETE /switches/:id: missing resource → 404.
+- POST /vms/:id/start, POST /vms/:id/stop, etc.: already in target state → 200 with appropriate flag (e.g. AlreadyRunning, AlreadyStopped).
+- POST /vms and POST /switches: **no longer idempotent by name**; each call creates a new resource and returns 201 with a new **id**. Use **Id** for all subsequent operations.
 
 ---------------------------------------
 
-This API is Terraform-provider-safe and suitable for automated infrastructure provisioning.
+This API is suitable for automated infrastructure provisioning. Use **Id** (GUID) for stable identification; use **by-name** only for discovery.

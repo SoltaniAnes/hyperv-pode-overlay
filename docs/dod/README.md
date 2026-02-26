@@ -98,13 +98,59 @@ Analyze code coverage by component using the coverage analysis script:
 
 This script provides a breakdown of coverage by items, helping identify areas that need additional test coverage.
 
+## API Scenario Tests
+
+En plus des tests unitaires, un scénario de test complet exerce l’API contre un serveur déjà démarré (localhost). Il valide l’enchaînement des endpoints (health, documentation, switches, VMs) et génère un rapport.
+
+### Prérequis
+
+- Le serveur API doit être démarré (voir [End-User Testing](#end-user-testing) pour le lancer).
+- Hyper-V disponible sur la machine où tourne le serveur.
+- PowerShell 7 (requis pour les appels HTTP du script).
+
+### Exécution
+
+```powershell
+.\tests\run-api-tests.ps1
+```
+
+Options possibles :
+
+```powershell
+.\tests\run-api-tests.ps1 -BaseUrl 'http://localhost:8080' -VmDiskPath 'C:\ProgramData\hvo-api-test'
+```
+
+Le script demande une confirmation que le serveur est démarré, vérifie `GET /health`, puis enchaîne :
+
+1. **Phase 1** : health, OpenAPI (documentation).
+2. **Phase 2** : CRUD des switches (liste, création, lecture, mise à jour, suppression).
+3. **Phase 3** : scénario VM (liste, création, lecture, démarrage, arrêt, adaptateurs réseau, mise à jour, suppression).
+
+Les ressources créées utilisent le préfixe `hvo-test-{type}-<YYYYMMDDHHmm>` et sont supprimées en fin de run lorsque les tests réussissent.
+
+### Rapport et échecs
+
+Un rapport est généré dans `tests/reports/api-test-report-<YYYYMMDDHHmm>.txt`. En cas d’échec, le rapport contient :
+
+- La liste des tests en échec (endpoint, code HTTP, réponse).
+- Une section **Remise en condition initiale Hyper-V** avec les commandes PowerShell pour supprimer les ressources de test restantes (VMs et switches dont le nom commence par `hvo-test-`).
+
+### Quand les exécuter
+
+- Après une modification des routes ou du comportement de l’API (switches, VMs, health, documentation).
+- Avant une release ou une validation de feature, en complément des tests unitaires et des tests manuels via Swagger.
+
 ## OpenAPI Documentation
 
 Static OpenAPI specification files must be generated and kept up to date in the `docs/` directory.
 
 ### Generation Script
 
-The OpenAPI specification can be automatically generated using the provided script located at `src/scripts/generate-openapi.ps1`.
+The OpenAPI specification can be automatically generated using the provided script :
+
+```powershell
+src/scripts/generate-openapi.ps1
+```
 
 **What the script does:**
 
@@ -156,3 +202,4 @@ The server starts by default on `http://127.0.0.1:8080`.
 - Returned data conforms to the OpenAPI schema
 - Changes are properly reflected in Hyper-V
 - Error cases are handled correctly
+- **API scenario tests** : `.\tests\run-api-tests.ps1` a été exécuté avec succès (recommandé après toute modification des routes ou du comportement de l’API)

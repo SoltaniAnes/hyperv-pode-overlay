@@ -131,6 +131,8 @@ paths:
                 items:
                   type: object
                   properties:
+                    Id:
+                      type: string
                     Name:
                       type: string
                     State:
@@ -142,6 +144,7 @@ paths:
                     Uptime:
                       type: string
                   required:
+                    - Id
                     - Name
                     - State
                     - CPUUsage
@@ -160,8 +163,8 @@ paths:
         - VMs
       summary: Create a new virtual machine
       description: |
-          Creates a new virtual machine with the specified configuration. Returns 200 if
-          VM already exists (idempotent)
+          Creates a new virtual machine. Each call creates a new resource and returns 201
+          with id (GUID). Names may be duplicated.
       requestBody:
         content:
           application/json:
@@ -170,16 +173,7 @@ paths:
         required: true
       responses:
         200:
-          description: VM already exists
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  exists:
-                    type: string
-                required:
-                  - exists
+          description: OK
         default:
           description: Internal server error
         201:
@@ -191,8 +185,11 @@ paths:
                 properties:
                   created:
                     type: string
+                  id:
+                    type: string
                 required:
                   - created
+                  - id
         400:
           description: Invalid JSON
           content:
@@ -205,18 +202,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}:
+  /vms/{id}:
     get:
       tags:
         - VMs
-      summary: Get virtual machine details
-      description: Returns detailed information about a specific virtual machine
+      summary: Get virtual machine details by Id
+      description: Returns detailed information about a specific virtual machine by its GUID
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: Virtual machine details
@@ -242,15 +239,13 @@ paths:
       tags:
         - VMs
       summary: Update a virtual machine
-      description: |
-          Updates configuration of an existing virtual machine. VM must be stopped.
-          Returns 200 with unchanged=true if no changes were needed
+      description: Updates configuration of an existing virtual machine by Id. VM must be stopped.
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       requestBody:
         content:
           application/json:
@@ -301,13 +296,13 @@ paths:
       tags:
         - VMs
       summary: Delete a virtual machine
-      description: Deletes a virtual machine and its associated virtual hard disks
+      description: Deletes a virtual machine by Id and its associated virtual hard disks
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: VM deleted successfully
@@ -334,18 +329,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/start:
+  /vms/by-name/{name}:
+    get:
+      tags:
+        - VMs
+      summary: Get VMs by name
+      description: |
+          Returns an array of virtual machines matching the given name (may be 0, 1 or
+          more)
+      parameters:
+        - required: true
+          schema:
+            type: string
+          in: path
+          name: name
+      responses:
+        200:
+          description: Array of VMs with matching name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    Id:
+                      type: string
+                    Name:
+                      type: string
+                    State:
+                      type: string
+                    CPUUsage:
+                      type: integer
+                    MemoryAssigned:
+                      type: integer
+                    Uptime:
+                      type: string
+                  required:
+                    - Id
+                    - Name
+                    - State
+                    - CPUUsage
+                    - MemoryAssigned
+                    - Uptime
+        default:
+          description: Internal server error
+        500:
+          description: Failed to get VMs by name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{id}/start:
     post:
       tags:
         - VMs
       summary: Start a virtual machine
-      description: Starts a virtual machine. If the VM is paused, it will be resumed
+      description: Starts a virtual machine by Id. If the VM is paused, it will be resumed
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: VM started successfully
@@ -372,24 +418,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/stop:
+  /vms/{id}/stop:
     post:
       tags:
         - VMs
       summary: Stop a virtual machine
-      description: |
-          Stops a virtual machine gracefully. Use force=true query parameter or body to
-          force shutdown
+      description: Stops a virtual machine by Id. Use force=true query or body to force shutdown
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
-        - name: force
-          schema:
+          name: id
+        - schema:
             type: boolean
           in: query
+          name: force
       requestBody:
         content:
           application/json:
@@ -436,24 +480,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/restart:
+  /vms/{id}/restart:
     post:
       tags:
         - VMs
       summary: Restart a virtual machine
       description: |
-          Restarts a virtual machine. Use force=true query parameter or body to force
-          shutdown before restart
+          Restarts a virtual machine by Id. Use force=true query or body to force shutdown
+          before restart
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
-        - name: force
-          schema:
+          name: id
+        - schema:
             type: boolean
           in: query
+          name: force
       requestBody:
         content:
           application/json:
@@ -494,18 +538,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/suspend:
+  /vms/{id}/suspend:
     post:
       tags:
         - VMs
       summary: Suspend a virtual machine
-      description: Suspends (pauses) a running virtual machine
+      description: Suspends (pauses) a running virtual machine by Id
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: VM suspended successfully
@@ -538,18 +582,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/resume:
+  /vms/{id}/resume:
     post:
       tags:
         - VMs
       summary: Resume a virtual machine
-      description: Resumes a suspended virtual machine
+      description: Resumes a suspended virtual machine by Id
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: VM resumed successfully
@@ -582,18 +626,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /vms/{name}/network-adapters:
+  /vms/{id}/network-adapters:
     get:
       tags:
         - VMs
       summary: List network adapters of a virtual machine
-      description: Returns a list of all network adapters for a specific virtual machine
+      description: Returns a list of all network adapters for a VM by Id (each adapter includes Id)
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: List of network adapters
@@ -604,6 +648,8 @@ paths:
                 items:
                   type: object
                   properties:
+                    Id:
+                      type: string
                     Name:
                       type: string
                     SwitchName:
@@ -618,7 +664,6 @@ paths:
                     - Name
                     - Type
                     - MacAddress
-                    - Status
         default:
           description: Internal server error
         404:
@@ -629,6 +674,101 @@ paths:
                 $ref: '#/components/schemas/ErrorSchema'
         500:
           description: Failed to list network adapters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+    post:
+      tags:
+        - VMs
+      summary: Add a network adapter to a VM
+      description: Adds a network adapter to a virtual machine by Id. Returns 201 with adapter id.
+      parameters:
+        - required: true
+          schema:
+            type: string
+          in: path
+          name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                switchName:
+                  type: string
+              required:
+                - switchName
+        required: true
+      responses:
+        200:
+          description: OK
+        default:
+          description: Internal server error
+        201:
+          description: Adapter created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: string
+                  id:
+                    type: string
+                required:
+                  - id
+        404:
+          description: VM not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to add adapter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /vms/{id}/network-adapters/{adapterId}:
+    delete:
+      tags:
+        - VMs
+      summary: Remove a network adapter from a VM
+      description: Removes a network adapter by adapter Id from a VM by Id
+      parameters:
+        - required: true
+          schema:
+            type: string
+          in: path
+          name: id
+        - required: true
+          schema:
+            type: string
+          in: path
+          name: adapterId
+      responses:
+        200:
+          description: Adapter removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: string
+                  id:
+                    type: string
+        default:
+          description: Internal server error
+        404:
+          description: VM or adapter not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+        500:
+          description: Failed to remove adapter
           content:
             application/json:
               schema:
@@ -649,6 +789,8 @@ paths:
                 items:
                   type: object
                   properties:
+                    Id:
+                      type: string
                     Name:
                       type: string
                     SwitchType:
@@ -660,6 +802,7 @@ paths:
                     Notes:
                       type: string
                   required:
+                    - Id
                     - Name
                     - SwitchType
         default:
@@ -675,8 +818,8 @@ paths:
         - Switches
       summary: Create a new virtual switch
       description: |
-          Creates a new virtual switch. For External switches, netAdapterName is required.
-          Returns 200 if switch already exists (idempotent)
+          Creates a new virtual switch. Each call returns 201 with id. For External
+          switches, netAdapterName is required.
       requestBody:
         content:
           application/json:
@@ -685,16 +828,7 @@ paths:
         required: true
       responses:
         200:
-          description: Switch already exists
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  exists:
-                    type: string
-                required:
-                  - exists
+          description: OK
         default:
           description: Internal server error
         201:
@@ -706,8 +840,11 @@ paths:
                 properties:
                   created:
                     type: string
+                  id:
+                    type: string
                 required:
                   - created
+                  - id
         400:
           description: Invalid JSON
           content:
@@ -720,18 +857,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSchema'
-  /switches/{name}:
+  /switches/{id}:
     get:
       tags:
         - Switches
-      summary: Get virtual switch details
-      description: Returns detailed information about a specific virtual switch
+      summary: Get virtual switch details by Id
+      description: Returns detailed information about a specific virtual switch by its GUID
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: Virtual switch details
@@ -757,13 +894,13 @@ paths:
       tags:
         - Switches
       summary: Update a virtual switch
-      description: Updates the notes field of an existing virtual switch
+      description: Updates the notes field of an existing virtual switch by Id
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       requestBody:
         content:
           application/json:
@@ -806,13 +943,13 @@ paths:
       tags:
         - Switches
       summary: Delete a virtual switch
-      description: Deletes a virtual switch
+      description: Deletes a virtual switch by Id
       parameters:
-        - name: name
+        - required: true
           schema:
             type: string
-          required: true
           in: path
+          name: id
       responses:
         200:
           description: Switch deleted successfully
@@ -835,6 +972,48 @@ paths:
                 $ref: '#/components/schemas/ErrorSchema'
         500:
           description: Failed to delete switch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSchema'
+  /switches/by-name/{name}:
+    get:
+      tags:
+        - Switches
+      summary: Get switches by name
+      description: Returns an array of virtual switches matching the given name
+      parameters:
+        - required: true
+          schema:
+            type: string
+          in: path
+          name: name
+      responses:
+        200:
+          description: Array of switches with matching name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    Id:
+                      type: string
+                    Name:
+                      type: string
+                    SwitchType:
+                      type: string
+                    Notes:
+                      type: string
+                  required:
+                    - Id
+                    - Name
+                    - SwitchType
+        default:
+          description: Internal server error
+        500:
+          description: Failed to get switches by name
           content:
             application/json:
               schema:
@@ -870,6 +1049,8 @@ components:
     VmSchema:
       type: object
       properties:
+        Id:
+          type: string
         Name:
           type: string
         State:
@@ -881,6 +1062,7 @@ components:
         Uptime:
           type: string
       required:
+        - Id
         - Name
         - State
         - CPUUsage
@@ -949,6 +1131,8 @@ components:
     SwitchSchema:
       type: object
       properties:
+        Id:
+          type: string
         Name:
           type: string
         SwitchType:
@@ -960,6 +1144,7 @@ components:
         Notes:
           type: string
       required:
+        - Id
         - Name
         - SwitchType
     SwitchCreateSchema:

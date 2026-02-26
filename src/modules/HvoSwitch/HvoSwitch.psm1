@@ -1,18 +1,10 @@
-﻿function New-HvoSwitch {
+function New-HvoSwitch {
     param(
         [string] $Name,
         [ValidateSet('Internal', 'External', 'Private')] [string] $Type,
         [string] $NetAdapterName,
         [string] $Notes
     )
-
-    $existing = Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
-    if ($existing) {
-        return @{
-            Exists = $true
-            Name   = $existing.Name
-        }
-    }
 
     switch ($Type) {
         'Internal' {
@@ -30,25 +22,26 @@
         }
     }
 
-    # Apply notes if provided
     if ($Notes) {
         Set-VMSwitch -Name $Name -Notes $Notes | Out-Null
     }
 
+    $idValue = if ($sw.Id) { $sw.Id.ToString() } else { $null }
     return @{
-        Exists = $false
-        Name   = $sw.Name
+        Name = $sw.Name
+        Id   = $idValue
     }
 }
 
 function Set-HvoSwitch {
     param(
-        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Id,
         [string] $Notes
     )
 
     try {
-        $sw = Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
+        try { $guid = [guid]$Id } catch { return @{ Updated = $false; Error = "Switch not found" } }
+        $sw = Get-VMSwitch -Id $guid -ErrorAction SilentlyContinue
         if (-not $sw) {
             return @{
                 Updated = $false
@@ -56,16 +49,16 @@ function Set-HvoSwitch {
             }
         }
 
-        #
-        # Update "Notes" only (the only safe modifiable property)
-        #
+        $swName = $sw.Name
+
         if ($PSBoundParameters.ContainsKey("Notes")) {
-            Set-VMSwitch -Name $Name -Notes $Notes -ErrorAction Stop
+            Set-VMSwitch -Name $swName -Notes $Notes -ErrorAction Stop
         }
 
         return @{
             Updated = $true
-            Name    = $Name
+            Name    = $swName
+            Id      = $sw.Id.ToString()
         }
     }
     catch {
@@ -76,28 +69,72 @@ function Set-HvoSwitch {
 
 function Get-HvoSwitch {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)]
+        [string] $Id
     )
 
-    return Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
+    try { $guid = [guid]$Id } catch { return $null }
+    $sw = Get-VMSwitch -Id $guid -ErrorAction SilentlyContinue
+    if (-not $sw) {
+        return $null
+    }
+
+    return [PSCustomObject]@{
+        Id         = $sw.Id.ToString()
+        Name       = $sw.Name
+        SwitchType = $sw.SwitchType.ToString()
+        Notes      = $sw.Notes
+    }
+}
+
+function Get-HvoSwitchByName {
+    param(
+        [Parameter(Mandatory)]
+        [string] $Name
+    )
+
+    $switches = Get-VMSwitch -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $Name }
+    if (-not $switches) {
+        return @()
+    }
+    if ($switches -isnot [Array]) {
+        $switches = @($switches)
+    }
+    return $switches | ForEach-Object {
+        [PSCustomObject]@{
+            Id         = $_.Id.ToString()
+            Name       = $_.Name
+            SwitchType = $_.SwitchType.ToString()
+            Notes      = $_.Notes
+        }
+    }
 }
 
 function Get-HvoSwitches {
-    Get-VMSwitch | Select-Object Name, SwitchType, Notes
+    $switches = Get-VMSwitch -ErrorAction SilentlyContinue
+    return $switches | ForEach-Object {
+        [PSCustomObject]@{
+            Id         = $_.Id.ToString()
+            Name       = $_.Name
+            SwitchType = $_.SwitchType.ToString()
+            Notes      = $_.Notes
+        }
+    }
 }
 
 function Remove-HvoSwitch {
     param(
-        [Parameter(Mandatory)] [string] $Name
+        [Parameter(Mandatory)] [string] $Id
     )
 
-    $sw = Get-VMSwitch -Name $Name -ErrorAction SilentlyContinue
+    try { $guid = [guid]$Id } catch { return $false }
+    $sw = Get-VMSwitch -Id $guid -ErrorAction SilentlyContinue
     if (-not $sw) {
         return $false
     }
 
     try {
-        Remove-VMSwitch -Name $Name -Force -ErrorAction Stop
+        Remove-VMSwitch -Name $sw.Name -Force -ErrorAction Stop
         return $true
     }
     catch {
