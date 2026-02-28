@@ -6,7 +6,10 @@ function Get-HvoJsonBody {
         $raw = [System.Text.Encoding]::UTF8.GetString($WebEvent.Request.Body)
         if ($raw) { return $raw | ConvertFrom-Json }
     }
-    catch {}
+    catch {
+        Write-Host "Error parsing JSON body: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $null
+    }
     return $null
 }
 

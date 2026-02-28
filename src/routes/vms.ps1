@@ -1,4 +1,4 @@
-function global:Add-HvoVmRoutes {
+﻿function global:Add-HvoVmRoutes {
     # Define reusable OpenAPI component schemas for VMs
     Add-PodeOAComponentSchema -Name 'VmSchema' -Schema (
         New-PodeOAObjectProperty -Properties @(
@@ -119,30 +119,6 @@ function global:Add-HvoVmRoutes {
 
 
 
-
-
-    #
-    # GET /vms/by-name/:name
-    #
-
-    $route = Add-PodeRoute -Method Get -Path '/vms/by-name/:name' -ScriptBlock {
-        try {
-            $name = $WebEvent.Parameters['name']
-
-            $vms = Get-HvoVmByName -Name $name
-
-            # Always return an array (even if empty)
-            Write-PodeJsonResponse -StatusCode 200 -Value $vms
-        }
-        catch {
-            Write-PodeJsonResponse -StatusCode 500 -Value @{
-                error  = "Failed to retrieve VMs by name"
-                detail = $_.Exception.Message
-            }
-        }
-    } -PassThru
-
-
     #
     # GET /vms/by-name/:name
     #
@@ -206,110 +182,10 @@ function global:Add-HvoVmRoutes {
         }
     } -PassThru
 
-    <#
-
-    $route | Set-PodeOARouteInfo -Summary 'Create a new virtual machine' -Description 'Creates a new virtual machine with the specified configuration. Returns 200 if VM already exists (idempotent)' -Tags @('VMs')
-    $route | Set-PodeOARequest -RequestBody (New-PodeOARequestBody -ContentSchemas @{
-        'application/json' = 'VmCreateSchema'
-    } -Required)
-    $route | Add-PodeOAResponse -StatusCode 201 -Description 'VM created successfully' -ContentSchemas @{
-        'application/json' = (New-PodeOAObjectProperty -Properties @(
-            (New-PodeOAStringProperty -Name 'created' -Required),
-            (New-PodeOAStringProperty -Name 'id' -Required)
-        ))
-    }
-    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to create VM' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-
     #
-    # PUT /vms/:id
+    # PUT /vms/:id - Declarative VM Update
     #
-
     $route = Add-PodeRoute -Method Put -Path '/vms/:id' -ScriptBlock {
-        try {
-            $id = $WebEvent.Parameters['id']
-            $body = Get-HvoJsonBody
-
-            if (-not $body) {
-                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
-                return
-            }
-
-            $params = @{ Id = $id }
-            if ($body.memoryMB)   { $params.MemoryMB   = $body.memoryMB }
-            if ($body.vcpu)       { $params.Vcpu       = $body.vcpu }
-            if ($body.switchName) { $params.SwitchName = $body.switchName }
-            if ($body.isoPath)    { $params.IsoPath    = $body.isoPath }
-
-            $result = Set-HvoVm @params
-
-            if ($result.Error -eq "VM not found") {
-                Write-PodeJsonResponse -StatusCode 404 -Value $result
-                return
-            }
-
-            if ($result.Updated -eq $false -and $result.Unchanged) {
-                Write-PodeJsonResponse -StatusCode 200 -Value @{
-                    unchanged = $true
-                    name      = $result.Name
-                    id        = $result.Id
-                }
-                return
-            }
-
-            if ($result.Updated -eq $false -and $result.Error) {
-                Write-PodeJsonResponse -StatusCode 409 -Value $result
-                return
-            }
-
-            Write-PodeJsonResponse -StatusCode 200 -Value @{
-                updated = $true
-                name    = $result.Name
-                id      = $result.Id
-            }
-        }
-        catch {
-            Write-PodeJsonResponse -StatusCode 500 -Value @{
-                error  = "Failed to update VM"
-                detail = $_.Exception.Message
-            }
-        }
-    } -PassThru
-
-    $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Updates configuration of an existing virtual machine by Id. VM must be stopped.' -Tags @('VMs')
-    $route | Set-PodeOARequest -Parameters @(
-        (New-PodeOAStringProperty -Name 'id' -Required | ConvertTo-PodeOAParameter -In Path)
-    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
-        'application/json' = 'VmUpdateSchema'
-    } -Required)
-    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM updated successfully or unchanged' -ContentSchemas @{
-        'application/json' = (New-PodeOAObjectProperty -Properties @(
-            (New-PodeOABoolProperty -Name 'updated'),
-            (New-PodeOABoolProperty -Name 'unchanged'),
-            (New-PodeOAStringProperty -Name 'name')
-        ))
-    }
-    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-    $route | Add-PodeOAResponse -StatusCode 409 -Description 'Update conflict (e.g., VM is running)' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update VM' -ContentSchemas @{
-        'application/json' = 'ErrorSchema'
-    }
-
-#>
-
-
-$route = Add-PodeRoute -Method Put -Path '/vms/:id' -ScriptBlock {
     try {
         $idRaw = $WebEvent.Parameters['id']
 
@@ -373,6 +249,40 @@ $route = Add-PodeRoute -Method Put -Path '/vms/:id' -ScriptBlock {
     }
 } -PassThru
 
+    $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Declaratively update VM configuration (memory, vCPU, network adapters, ISO). Aligns current state to desired state. Fully idempotent. VM must be stopped.' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'id' -Required | ConvertTo-PodeOAParameter -In Path)
+    ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOAIntProperty -Name 'memoryMB'),
+            (New-PodeOAIntProperty -Name 'vcpu'),
+            (New-PodeOAObjectProperty -Name 'networkAdapters' -Array -Properties @(
+                (New-PodeOAStringProperty -Name 'name' -Required),
+                (New-PodeOAStringProperty -Name 'switchName' -Required)
+            )),
+            (New-PodeOAStringProperty -Name 'isoPath')
+        ))
+    })
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'VM updated successfully or unchanged' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOABoolProperty -Name 'updated'),
+            (New-PodeOABoolProperty -Name 'unchanged'),
+            (New-PodeOAStringProperty -Name 'id'),
+            (New-PodeOAStringProperty -Name 'name')
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON or invalid GUID format' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 409 -Description 'Update conflict (e.g., VM is running, invalid state)' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update VM' -ContentSchemas @{
+        'application/json' = 'ErrorSchema'
+    }
 
     #
     # DELETE /vms/:id
