@@ -279,7 +279,7 @@ function Get-HvoVmByName {
     if (-not $vms) {
         return @()
     }
-    if ($vms -isnot [Array]) {
+    if ($vms -isnot [array]) {
         $vms = @($vms)
     }
     return $vms | ForEach-Object {

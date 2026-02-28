@@ -182,10 +182,6 @@
         }
     } -PassThru
 
-    <#
-    OLD ROUTE - if needed for reference, search git history
-    #>
-
     #
     # PUT /vms/:id - Declarative VM Update
     #
@@ -260,7 +256,7 @@
         'application/json' = (New-PodeOAObjectProperty -Properties @(
             (New-PodeOAIntProperty -Name 'memoryMB'),
             (New-PodeOAIntProperty -Name 'vcpu'),
-            (New-PodeOAObjectProperty -Name 'networkAdapters' -IsArray -Properties @(
+            (New-PodeOAObjectProperty -Name 'networkAdapters' -Array -Properties @(
                 (New-PodeOAStringProperty -Name 'name' -Required),
                 (New-PodeOAStringProperty -Name 'switchName' -Required)
             )),
