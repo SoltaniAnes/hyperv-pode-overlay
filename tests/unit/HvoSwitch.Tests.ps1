@@ -2,20 +2,11 @@
 # Uses InModuleScope to test within the module context and allow mocks to work
 
 BeforeAll {
-    # Create stubs for Hyper-V cmdlets when they are not present (e.g. WSL, Linux)
-    # This allows Pester to mock these commands even without the Hyper-V module
-    if (-not (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue)) {
-        function global:Get-VMSwitch { param($Name, $Id, $ErrorAction) }
-    }
-    if (-not (Get-Command New-VMSwitch -ErrorAction SilentlyContinue)) {
-        function global:New-VMSwitch { param($Name, $SwitchType, $NetAdapterName, $AllowManagementOS) }
-    }
-    if (-not (Get-Command Set-VMSwitch -ErrorAction SilentlyContinue)) {
-        function global:Set-VMSwitch { param($Name, $Notes, $ErrorAction) }
-    }
-    if (-not (Get-Command Remove-VMSwitch -ErrorAction SilentlyContinue)) {
-        function global:Remove-VMSwitch { param($Name, $Force, $ErrorAction) }
-    }
+    # Always define stubs so that Pester mocks apply (avoids type constraints of real Hyper-V cmdlets on Windows)
+    function global:Get-VMSwitch { param($Name, $Id, $ErrorAction) }
+    function global:New-VMSwitch { param($Name, $SwitchType, $NetAdapterName, $AllowManagementOS) }
+    function global:Set-VMSwitch { param($Name, $Notes, $ErrorAction) }
+    function global:Remove-VMSwitch { param($Name, $Force, $ErrorAction) }
 
     $modulePath = Join-Path $PSScriptRoot "../../src/modules/HvoSwitch/HvoSwitch.psd1"
     Import-Module $modulePath -Force
@@ -99,21 +90,21 @@ InModuleScope HvoSwitch {
                 }
                 $mockSwitch.SwitchType | Add-Member -MemberType ScriptMethod -Name "ToString" -Value { return "Internal" } -Force
 
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $mockSwitch }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
 
                 $result = Get-HvoSwitch -Id $switchId.ToString()
 
                 $result | Should -Not -BeNullOrEmpty
                 $result.Id | Should -Be $switchId.ToString()
                 $result.Name | Should -Be "test-switch"
-                Should -Invoke Get-VMSwitch -Exactly -Times 1 -ParameterFilter { $Id -eq $switchId }
+                Should -Invoke Get-VMSwitch -Exactly -Times 1 -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() }
             }
         }
 
         Context "When the switch does not exist" {
             It "Should return null" {
                 $switchId = [guid]'00000000-0000-0000-0000-000000000001'
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $null }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $switchId.ToString() } -MockWith { return $null }
                 $result = Get-HvoSwitch -Id $switchId.ToString()
                 $result | Should -BeNullOrEmpty
             }
@@ -177,7 +168,7 @@ InModuleScope HvoSwitch {
         Context "When the switch does not exist" {
             It "Should return Updated = false with an error" {
                 $switchId = [guid]'00000000-0000-0000-0000-000000000001'
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $null }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $switchId.ToString() } -MockWith { return $null }
                 Mock Set-VMSwitch -MockWith { }
                 $result = Set-HvoSwitch -Id $switchId.ToString() -Notes "New notes"
                 $result | Should -Not -BeNullOrEmpty
@@ -192,7 +183,7 @@ InModuleScope HvoSwitch {
                 $switchId = $script:testSwitchGuid
                 $newNotes = "Updated notes"
                 $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch" }
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $mockSwitch }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
                 Mock Set-VMSwitch -MockWith { }
                 $result = Set-HvoSwitch -Id $switchId.ToString() -Notes $newNotes
                 $result | Should -Not -BeNullOrEmpty
@@ -206,7 +197,7 @@ InModuleScope HvoSwitch {
             It "Should return Updated = true even without modification if the switch exists" {
                 $switchId = $script:testSwitchGuid
                 $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch" }
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $mockSwitch }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
                 Mock Set-VMSwitch -MockWith { }
                 $result = Set-HvoSwitch -Id $switchId.ToString()
                 $result | Should -Not -BeNullOrEmpty
@@ -220,7 +211,7 @@ InModuleScope HvoSwitch {
             It "Should propagate the exception" {
                 $switchId = $script:testSwitchGuid
                 $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "switch-with-error" }
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $mockSwitch }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
                 Mock Set-VMSwitch -MockWith { throw "Test error" }
                 { Set-HvoSwitch -Id $switchId.ToString() -Notes "Test" } | Should -Throw
             }
@@ -231,7 +222,7 @@ InModuleScope HvoSwitch {
         Context "When the switch does not exist" {
             It "Should return false" {
                 $switchId = [guid]'00000000-0000-0000-0000-000000000001'
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $null }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $switchId.ToString() } -MockWith { return $null }
                 Mock Remove-VMSwitch -MockWith { }
                 $result = Remove-HvoSwitch -Id $switchId.ToString()
                 $result | Should -Be $false
@@ -243,7 +234,7 @@ InModuleScope HvoSwitch {
             It "Should remove the switch" {
                 $switchId = $script:testSwitchGuid
                 $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch" }
-                Mock Get-VMSwitch -ParameterFilter { $Id -eq $switchId } -MockWith { return $mockSwitch }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
                 Mock Remove-VMSwitch -MockWith { }
                 $result = Remove-HvoSwitch -Id $switchId.ToString()
                 $result | Should -Be $true
