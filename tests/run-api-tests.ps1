@@ -33,7 +33,7 @@ function Invoke-ApiRequest {
         [string]$Method,
         [string]$Path,
         [int[]]$ExpectedStatus = @(200),
-        [hashtable]$Body = $null,
+        [object]$Body = $null,
         [string]$TestName = "$Method $Path"
     )
     $url = "$BaseUrl$Path"
@@ -116,6 +116,9 @@ Add-Report "[OK] Serveur accessible (GET /health -> $($healthResult.StatusCode))
 Add-Report ""
 
 $startTime = Get-Date
+$script:runFailed = $false
+
+try {
 
 # ========== Phase 1: Basic ==========
 Add-Report "--- Phase 1: Health et documentation ---" ""
@@ -211,6 +214,10 @@ if (-not $script:SwitchId) {
         Add-Report "  [$(if ($r.Success) { 'OK' } else { 'FAIL' })] $($r.TestName) -> $($r.StatusCode)" "  "
         if (-not $r.Success) { Add-Report "      Response: $($r.Content)" "  " }
 
+        # Issue #25: PUT /vms/:id (VM config) must return 409 when VM is running
+        $r = Invoke-ApiRequest -Method Put -Path "/vms/$($script:VmId)" -Body @{ memoryMB = 512; vcpu = 1 } -ExpectedStatus 409 -TestName 'PUT /vms/:id on running VM returns 409 (issue #25)'
+        Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
+
         $r = Invoke-ApiRequest -Method Post -Path "/vms/$($script:VmId)/stop" -Body @{ force = $true } -ExpectedStatus 200 -TestName 'POST /vms/:id/stop'
         Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
 
@@ -228,8 +235,39 @@ if (-not $script:SwitchId) {
 
         $r = Invoke-ApiRequest -Method Get -Path "/vms/$($script:VmId)/network-adapters" -ExpectedStatus 200 -TestName 'GET /vms/:id/network-adapters'
         Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
+        $adaptersBeforePutVm = if ($r.Success -and $r.Json) { @($r.Json).Count } else { 0 }
 
         $r = Invoke-ApiRequest -Method Put -Path "/vms/$($script:VmId)" -Body @{ memoryMB = 512; vcpu = 1 } -ExpectedStatus 200 -TestName 'PUT /vms/:id'
+        Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
+
+        # Issue #25: PUT /vms/:id must not change network adapters (declarative adapters are via PUT /vms/:id/network-adapters only)
+        $r = Invoke-ApiRequest -Method Get -Path "/vms/$($script:VmId)/network-adapters" -ExpectedStatus 200 -TestName 'GET /vms/:id/network-adapters after PUT /vms/:id (adapters unchanged, issue #25)'
+        if ($r.Success -and $r.Json) {
+            $countAfter = @($r.Json).Count
+            if ($countAfter -ne $adaptersBeforePutVm) {
+                $r.Success = $false
+                $r.Content = "Expected $adaptersBeforePutVm adapter(s) unchanged after PUT /vms/:id, got $countAfter (issue #25)"
+                $null = $failedTests.Add(@{ Phase = 'Phase3'; Result = $r })
+                $script:passedTests--
+            }
+        }
+        Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
+
+        # Issue #25: Declarative reconciliation via PUT /vms/:id/network-adapters
+        $desiredAdapters = @(@{ name = 'Ethernet'; switchName = $testSwitchName })
+        $r = Invoke-ApiRequest -Method Put -Path "/vms/$($script:VmId)/network-adapters" -Body $desiredAdapters -ExpectedStatus 200 -TestName 'PUT /vms/:id/network-adapters (declarative, issue #25)'
+        Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
+
+        $r = Invoke-ApiRequest -Method Get -Path "/vms/$($script:VmId)/network-adapters" -ExpectedStatus 200 -TestName 'GET /vms/:id/network-adapters after PUT (reconciled list)'
+        if ($r.Success -and $r.Json) {
+            $list = @($r.Json)
+            if ($list.Count -ne 1) {
+                $r.Success = $false
+                $r.Content = "Expected 1 adapter after PUT /vms/:id/network-adapters, got $($list.Count)"
+                $null = $failedTests.Add(@{ Phase = 'Phase3'; Result = $r })
+                $script:passedTests--
+            }
+        }
         Add-TestResult -Result $r -Phase 'Phase3' | Out-Null
 
         $r = Invoke-ApiRequest -Method Delete -Path "/vms/$($script:VmId)" -ExpectedStatus 200 -TestName 'DELETE /vms/:id'
@@ -243,9 +281,17 @@ if (-not $script:SwitchId) {
     }
 }
 
-# ----- Report -----
+} catch {
+    $script:runFailed = $true
+    Add-Report "" ""
+    Add-Report "--- Erreur (exception non geree) ---" ""
+    Add-Report $_.Exception.Message ""
+    Add-Report "Emplacement: $($_.ScriptStackTrace)" ""
+}
+
+# ----- Report (toujours affiche, y compris en cas d'exception) -----
 $endTime = Get-Date
-$duration = $endTime - $startTime
+$duration = if ($startTime) { $endTime - $startTime } else { [TimeSpan]::Zero }
 Add-Report "" ""
 Add-Report "=== Rapport ===" ""
 Add-Report "Date/heure: $($endTime.ToString('yyyy-MM-dd HH:mm:ss'))" ""
@@ -258,6 +304,8 @@ if ($failedTests.Count -gt 0) {
         Add-Report "  - $($f.Result.TestName)" ""
         Add-Report "    HTTP $($f.Result.StatusCode) | $($f.Result.Content)" ""
     }
+}
+if ($failedTests.Count -gt 0 -or $script:runFailed) {
     Add-Report "" ""
     Add-Report "--- Remise en condition initiale Hyper-V ---" ""
     Add-Report "Si des ressources de test sont restees, supprimez-les avec PowerShell (en administrateur):" ""
@@ -288,7 +336,7 @@ $reportLines -join "`n" | Set-Content -Path $reportFile -Encoding UTF8
 Add-Report "" ""
 Add-Report "Rapport enregistre: $reportFile" ""
 
-if ($failedTests.Count -gt 0) {
+if ($failedTests.Count -gt 0 -or $script:runFailed) {
     exit 1
 }
 exit 0
