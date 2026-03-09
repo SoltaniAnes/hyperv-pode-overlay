@@ -172,10 +172,10 @@ paths:
       description: Returns detailed information about a specific virtual machine by its GUID
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Virtual machine details
@@ -206,10 +206,10 @@ paths:
           Network adapters are managed via PUT /vms/:id/network-adapters.
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -271,10 +271,10 @@ paths:
       description: Deletes a virtual machine by Id and its associated virtual hard disks
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: VM deleted successfully
@@ -311,10 +311,10 @@ paths:
           more)
       parameters:
         - name: name
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Array of VMs with matching name
@@ -360,10 +360,10 @@ paths:
       description: Returns a list of all network adapters for a VM by Id (each adapter includes Id)
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: List of network adapters
@@ -411,10 +411,10 @@ paths:
       description: Adds a network adapter to a virtual machine by Id. Returns 201 with adapter id.
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -466,10 +466,10 @@ paths:
           may be running (hot-add/hot-remove).
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Adapters updated or unchanged
@@ -514,10 +514,10 @@ paths:
       description: Starts a virtual machine by Id. If the VM is paused, it will be resumed
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: VM started successfully
@@ -552,14 +552,14 @@ paths:
       description: Stops a virtual machine by Id. Use force=true query or body to force shutdown
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
         - name: force
+          in: query
           schema:
             type: boolean
-          in: query
       requestBody:
         content:
           application/json:
@@ -616,14 +616,14 @@ paths:
           before restart
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
         - name: force
+          in: query
           schema:
             type: boolean
-          in: query
       requestBody:
         content:
           application/json:
@@ -672,10 +672,10 @@ paths:
       description: Suspends (pauses) a running virtual machine by Id
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: VM suspended successfully
@@ -716,10 +716,10 @@ paths:
       description: Resumes a suspended virtual machine by Id
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: VM resumed successfully
@@ -760,15 +760,15 @@ paths:
       description: Removes a network adapter by adapter Id from a VM by Id
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
         - name: adapterId
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Adapter removed
@@ -887,10 +887,10 @@ paths:
       description: Returns detailed information about a specific virtual switch by its GUID
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Virtual switch details
@@ -919,10 +919,10 @@ paths:
       description: Updates the notes field of an existing virtual switch by Id
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -931,16 +931,20 @@ paths:
         required: true
       responses:
         200:
-          description: Switch updated successfully
+          description: Switch updated or unchanged
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   updated:
+                    type: boolean
+                  unchanged:
+                    type: boolean
+                  id:
                     type: string
-                required:
-                  - updated
+                  name:
+                    type: string
         default:
           description: Internal server error
         400:
@@ -968,10 +972,10 @@ paths:
       description: Deletes a virtual switch by Id
       parameters:
         - name: id
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Switch deleted successfully
@@ -1006,10 +1010,10 @@ paths:
       description: Returns an array of virtual switches matching the given name
       parameters:
         - name: name
-          schema:
-            type: string
           in: path
           required: true
+          schema:
+            type: string
       responses:
         200:
           description: Array of switches with matching name
@@ -1121,8 +1125,6 @@ components:
           type: integer
         vcpu:
           type: integer
-        switchName:
-          type: string
         isoPath:
           type: string
     VmResponseSchema:

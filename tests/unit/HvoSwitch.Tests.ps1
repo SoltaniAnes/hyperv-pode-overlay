@@ -194,15 +194,27 @@ InModuleScope HvoSwitch {
                 }
             }
 
-            It "Should return Updated = true even without modification if the switch exists" {
+            It "Should return Unchanged when no Notes parameter or notes unchanged" {
                 $switchId = $script:testSwitchGuid
-                $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch" }
+                $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch"; Notes = "same" }
                 Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
                 Mock Set-VMSwitch -MockWith { }
                 $result = Set-HvoSwitch -Id $switchId.ToString()
                 $result | Should -Not -BeNullOrEmpty
-                $result.Updated | Should -Be $true
+                $result.Updated | Should -Be $false
+                $result.Unchanged | Should -Be $true
                 $result.Name | Should -Be "existing-switch"
+                Should -Not -Invoke Set-VMSwitch
+            }
+
+            It "Should return Unchanged when Notes value equals current" {
+                $switchId = $script:testSwitchGuid
+                $mockSwitch = [PSCustomObject]@{ Id = $switchId; Name = "existing-switch"; Notes = "same" }
+                Mock Get-VMSwitch -ParameterFilter { $null -ne $Id -and $Id.ToString() -eq $script:testSwitchGuid.ToString() } -MockWith { return $mockSwitch }
+                Mock Set-VMSwitch -MockWith { }
+                $result = Set-HvoSwitch -Id $switchId.ToString() -Notes "same"
+                $result.Updated | Should -Be $false
+                $result.Unchanged | Should -Be $true
                 Should -Not -Invoke Set-VMSwitch
             }
         }

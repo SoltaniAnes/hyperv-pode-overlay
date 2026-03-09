@@ -268,11 +268,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -320,11 +320,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "requestBody": {
@@ -426,11 +426,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -488,11 +488,11 @@
         "parameters": [
           {
             "name": "name",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -563,11 +563,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -643,11 +643,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "requestBody": {
@@ -727,11 +727,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -805,11 +805,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -867,18 +867,18 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           },
           {
             "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
-            },
-            "in": "query"
+            }
           }
         ],
         "requestBody": {
@@ -970,18 +970,18 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           },
           {
             "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
-            },
-            "in": "query"
+            }
           }
         ],
         "requestBody": {
@@ -1063,11 +1063,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1135,11 +1135,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1207,19 +1207,19 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           },
           {
             "name": "adapterId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1405,11 +1405,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1457,11 +1457,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "requestBody": {
@@ -1476,19 +1476,25 @@
         },
         "responses": {
           "200": {
-            "description": "Switch updated successfully",
+            "description": "Switch updated or unchanged",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "updated": {
+                      "type": "boolean"
+                    },
+                    "unchanged": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "updated"
-                  ]
+                  }
                 }
               }
             }
@@ -1537,11 +1543,11 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1599,11 +1605,11 @@
         "parameters": [
           {
             "name": "name",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "required": true
+            }
           }
         ],
         "responses": {
@@ -1769,9 +1775,6 @@
           },
           "vcpu": {
             "type": "integer"
-          },
-          "switchName": {
-            "type": "string"
           },
           "isoPath": {
             "type": "string"

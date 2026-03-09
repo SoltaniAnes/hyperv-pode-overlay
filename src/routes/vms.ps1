@@ -27,7 +27,6 @@ function global:Add-HvoVmRoutes {
         New-PodeOAObjectProperty -Properties @(
             (New-PodeOAIntProperty -Name 'memoryMB'),
             (New-PodeOAIntProperty -Name 'vcpu'),
-            (New-PodeOAStringProperty -Name 'switchName'),
             (New-PodeOAStringProperty -Name 'isoPath')
         )
     )
@@ -186,67 +185,67 @@ function global:Add-HvoVmRoutes {
     # PUT /vms/:id - Declarative VM Update
     #
     $route = Add-PodeRoute -Method Put -Path '/vms/:id' -ScriptBlock {
-    try {
-        $idRaw = $WebEvent.Parameters['id']
+        try {
+            $idRaw = $WebEvent.Parameters['id']
 
-        # Validate GUID
-        try { $id = [Guid]$idRaw }
-        catch {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid VM id (expected GUID)" }
-            return
-        }
-
-        $body = Get-HvoJsonBody
-        if (-not $body) {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
-            return
-        }
-
-        # Only pass parameters actually provided by the client (VM config only; network adapters use PUT /vms/:id/network-adapters)
-        $params = @{ Id = $id }
-
-        if ($null -ne $body.memoryMB) { $params.MemoryMB = [int]$body.memoryMB }
-        if ($null -ne $body.vcpu)     { $params.Vcpu    = [int]$body.vcpu }
-        if ($null -ne $body.isoPath)  { $params.IsoPath = [string]$body.isoPath }
-
-        $result = Set-HvoVm @params
-
-        # 404
-        if ($result.Error -eq "VM not found") {
-            Write-PodeJsonResponse -StatusCode 404 -Value $result
-            return
-        }
-
-        # unchanged (idempotent)
-        if ($result.Updated -eq $false -and $result.Unchanged) {
-            Write-PodeJsonResponse -StatusCode 200 -Value @{
-                unchanged = $true
-                id        = "$id"
-                name      = $result.Name
+            # Validate GUID
+            try { $id = [Guid]$idRaw }
+            catch {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid VM id (expected GUID)" }
+                return
             }
-            return
-        }
 
-        # conflict (eg running)
-        if ($result.Updated -eq $false -and $result.Error) {
-            Write-PodeJsonResponse -StatusCode 409 -Value $result
-            return
-        }
+            $body = Get-HvoJsonBody
+            if (-not $body) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
 
-        # updated
-        Write-PodeJsonResponse -StatusCode 200 -Value @{
-            updated = $true
-            id      = "$id"
-            name    = $result.Name
+            # Only pass parameters actually provided by the client (VM config only; network adapters use PUT /vms/:id/network-adapters)
+            $params = @{ Id = $id }
+
+            if ($null -ne $body.memoryMB) { $params.MemoryMB = [int]$body.memoryMB }
+            if ($null -ne $body.vcpu)     { $params.Vcpu    = [int]$body.vcpu }
+            if ($null -ne $body.isoPath)  { $params.IsoPath = [string]$body.isoPath }
+
+            $result = Set-HvoVm @params
+
+            # 404
+            if ($result.Error -eq "VM not found") {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            # unchanged (idempotent)
+            if ($result.Updated -eq $false -and $result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    id        = "$id"
+                    name      = $result.Name
+                }
+                return
+            }
+
+            # conflict (eg running)
+            if ($result.Updated -eq $false -and $result.Error) {
+                Write-PodeJsonResponse -StatusCode 409 -Value $result
+                return
+            }
+
+            # updated
+            Write-PodeJsonResponse -StatusCode 200 -Value @{
+                updated = $true
+                id      = "$id"
+                name    = $result.Name
+            }
         }
-    }
-    catch {
-        Write-PodeJsonResponse -StatusCode 500 -Value @{
-            error  = "Failed to update VM"
-            detail = $_.Exception.Message
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update VM"
+                detail = $_.Exception.Message
+            }
         }
-    }
-} -PassThru
+    } -PassThru
 
     $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Declaratively update VM configuration (memory, vCPU, ISO). VM must be stopped. Network adapters are managed via PUT /vms/:id/network-adapters.' -Tags @('VMs')
     $route | Set-PodeOARequest -Parameters @(

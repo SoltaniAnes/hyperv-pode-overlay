@@ -249,36 +249,6 @@ function Get-HvoVm {
     }
 }
 
-# WIP: GUID-based refactor
-# Resource identification is migrating from Name to Id (GUID).
-# This section is part of the canonical Id-based API transition.
-
-
-function Get-HvoVmByName {
-    param(
-        [Parameter(Mandatory)] [string] $Name
-    )
-
-    $vms = @(Get-VM -Name $Name -ErrorAction SilentlyContinue)
-
-    if (-not $vms -or $vms.Count -eq 0) {
-        return @()
-    }
-
-    return $vms | ForEach-Object {
-        [PSCustomObject]@{
-            Id             = $_.Id.Guid
-            Name           = $_.Name
-            State          = $_.State.ToString()
-            CPUUsage       = $_.CPUUsage
-            MemoryAssigned = $_.MemoryAssigned
-            Uptime         = $_.Uptime.ToString()
-        }
-    }
-}
-
-
-
 function Get-HvoVms {
     $vms = Get-VM -ErrorAction SilentlyContinue
     return $vms | ForEach-Object {
