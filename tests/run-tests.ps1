@@ -112,17 +112,23 @@ if ($runUnit) {
     }
 }
 
-# Run integration tests
+# Run integration tests (only if test files exist)
 if ($runIntegration) {
-    Write-Host "`n=== Integration Tests ===" -ForegroundColor Cyan
-    $integrationConfig = New-PesterConfiguration
-    $integrationConfig.Run.Path = $integrationPath
-    $integrationConfig.Output.Verbosity = 'Detailed'
+    $integrationTestFiles = Get-ChildItem -Path $integrationPath -Filter "*.Tests.ps1" -Recurse -ErrorAction SilentlyContinue
+    if ($integrationTestFiles.Count -gt 0) {
+        Write-Host "`n=== Integration Tests ===" -ForegroundColor Cyan
+        $integrationConfig = New-PesterConfiguration
+        $integrationConfig.Run.Path = $integrationPath
+        $integrationConfig.Output.Verbosity = 'Detailed'
 
-    $integrationResults = Invoke-Pester -Configuration $integrationConfig
+        $integrationResults = Invoke-Pester -Configuration $integrationConfig
 
-    if ($integrationResults.FailedCount -gt 0) {
-        $allPassed = $false
+        if ($integrationResults.FailedCount -gt 0) {
+            $allPassed = $false
+        }
+    } else {
+        Write-Host "`n=== Integration Tests ===" -ForegroundColor Cyan
+        Write-Host "No integration test files (*.Tests.ps1) found in $integrationPath, skipping." -ForegroundColor Gray
     }
 }
 

@@ -178,16 +178,25 @@ function global:Add-HvoSwitchRoutes {
             }
 
             $params = @{ Id = $id }
-            if ($body.notes) { $params.Notes = $body.notes }
+            if ($null -ne $body.notes) { $params.Notes = $body.notes }
 
             $result = Set-HvoSwitch @params
 
-            if (-not $result.Updated) {
+            if ($result.Error -eq "Switch not found") {
                 Write-PodeJsonResponse -StatusCode 404 -Value $result
                 return
             }
 
-            Write-PodeJsonResponse -Value @{ updated = $result.Name; id = $result.Id }
+            if ($result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    id        = $result.Id
+                    name      = $result.Name
+                }
+                return
+            }
+
+            Write-PodeJsonResponse -StatusCode 200 -Value @{ updated = $true; id = $result.Id; name = $result.Name }
         }
         catch {
             Write-PodeJsonResponse -StatusCode 500 -Value @{
@@ -203,9 +212,12 @@ function global:Add-HvoSwitchRoutes {
     ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
         'application/json' = 'SwitchUpdateSchema'
     } -Required)
-    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Switch updated successfully' -ContentSchemas @{
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Switch updated or unchanged' -ContentSchemas @{
         'application/json' = (New-PodeOAObjectProperty -Properties @(
-            (New-PodeOAStringProperty -Name 'updated' -Required)
+            (New-PodeOABoolProperty -Name 'updated'),
+            (New-PodeOABoolProperty -Name 'unchanged'),
+            (New-PodeOAStringProperty -Name 'id'),
+            (New-PodeOAStringProperty -Name 'name')
         ))
     }
     $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON' -ContentSchemas @{

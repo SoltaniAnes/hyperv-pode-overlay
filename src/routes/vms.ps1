@@ -1,4 +1,4 @@
-﻿function global:Add-HvoVmRoutes {
+function global:Add-HvoVmRoutes {
     # Define reusable OpenAPI component schemas for VMs
     Add-PodeOAComponentSchema -Name 'VmSchema' -Schema (
         New-PodeOAObjectProperty -Properties @(
@@ -27,7 +27,6 @@
         New-PodeOAObjectProperty -Properties @(
             (New-PodeOAIntProperty -Name 'memoryMB'),
             (New-PodeOAIntProperty -Name 'vcpu'),
-            (New-PodeOAStringProperty -Name 'switchName'),
             (New-PodeOAStringProperty -Name 'isoPath')
         )
     )
@@ -186,80 +185,75 @@
     # PUT /vms/:id - Declarative VM Update
     #
     $route = Add-PodeRoute -Method Put -Path '/vms/:id' -ScriptBlock {
-    try {
-        $idRaw = $WebEvent.Parameters['id']
+        try {
+            $idRaw = $WebEvent.Parameters['id']
 
-        # Validate GUID
-        try { $id = [Guid]$idRaw }
-        catch {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid VM id (expected GUID)" }
-            return
-        }
-
-        $body = Get-HvoJsonBody
-        if (-not $body) {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
-            return
-        }
-
-        # Only pass parameters actually provided by the client
-        $params = @{ Id = $id }
-
-        if ($null -ne $body.memoryMB)        { $params.MemoryMB        = [int]$body.memoryMB }
-        if ($null -ne $body.vcpu)            { $params.Vcpu            = [int]$body.vcpu }
-        if ($null -ne $body.isoPath)         { $params.IsoPath         = [string]$body.isoPath }
-        if ($null -ne $body.networkAdapters) { $params.NetworkAdapters = $body.networkAdapters }
-
-        $result = Set-HvoVm @params
-
-        # 404
-        if ($result.Error -eq "VM not found") {
-            Write-PodeJsonResponse -StatusCode 404 -Value $result
-            return
-        }
-
-        # unchanged (idempotent)
-        if ($result.Updated -eq $false -and $result.Unchanged) {
-            Write-PodeJsonResponse -StatusCode 200 -Value @{
-                unchanged = $true
-                id        = "$id"
-                name      = $result.Name
+            # Validate GUID
+            try { $id = [Guid]$idRaw }
+            catch {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid VM id (expected GUID)" }
+                return
             }
-            return
-        }
 
-        # conflict (eg running)
-        if ($result.Updated -eq $false -and $result.Error) {
-            Write-PodeJsonResponse -StatusCode 409 -Value $result
-            return
-        }
+            $body = Get-HvoJsonBody
+            if (-not $body) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
 
-        # updated
-        Write-PodeJsonResponse -StatusCode 200 -Value @{
-            updated = $true
-            id      = "$id"
-            name    = $result.Name
-        }
-    }
-    catch {
-        Write-PodeJsonResponse -StatusCode 500 -Value @{
-            error  = "Failed to update VM"
-            detail = $_.Exception.Message
-        }
-    }
-} -PassThru
+            # Only pass parameters actually provided by the client (VM config only; network adapters use PUT /vms/:id/network-adapters)
+            $params = @{ Id = $id }
 
-    $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Declaratively update VM configuration (memory, vCPU, network adapters, ISO). Aligns current state to desired state. Fully idempotent. VM must be stopped.' -Tags @('VMs')
+            if ($null -ne $body.memoryMB) { $params.MemoryMB = [int]$body.memoryMB }
+            if ($null -ne $body.vcpu)     { $params.Vcpu    = [int]$body.vcpu }
+            if ($null -ne $body.isoPath)  { $params.IsoPath = [string]$body.isoPath }
+
+            $result = Set-HvoVm @params
+
+            # 404
+            if ($result.Error -eq "VM not found") {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            # unchanged (idempotent)
+            if ($result.Updated -eq $false -and $result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    id        = "$id"
+                    name      = $result.Name
+                }
+                return
+            }
+
+            # conflict (eg running)
+            if ($result.Updated -eq $false -and $result.Error) {
+                Write-PodeJsonResponse -StatusCode 409 -Value $result
+                return
+            }
+
+            # updated
+            Write-PodeJsonResponse -StatusCode 200 -Value @{
+                updated = $true
+                id      = "$id"
+                name    = $result.Name
+            }
+        }
+        catch {
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update VM"
+                detail = $_.Exception.Message
+            }
+        }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Update a virtual machine' -Description 'Declaratively update VM configuration (memory, vCPU, ISO). VM must be stopped. Network adapters are managed via PUT /vms/:id/network-adapters.' -Tags @('VMs')
     $route | Set-PodeOARequest -Parameters @(
         (New-PodeOAStringProperty -Name 'id' -Required | ConvertTo-PodeOAParameter -In Path)
     ) -RequestBody (New-PodeOARequestBody -ContentSchemas @{
         'application/json' = (New-PodeOAObjectProperty -Properties @(
             (New-PodeOAIntProperty -Name 'memoryMB'),
             (New-PodeOAIntProperty -Name 'vcpu'),
-            (New-PodeOAObjectProperty -Name 'networkAdapters' -Array -Properties @(
-                (New-PodeOAStringProperty -Name 'name' -Required),
-                (New-PodeOAStringProperty -Name 'switchName' -Required)
-            )),
             (New-PodeOAStringProperty -Name 'isoPath')
         ))
     })
@@ -283,6 +277,87 @@
     $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update VM' -ContentSchemas @{
         'application/json' = 'ErrorSchema'
     }
+
+    #
+    # PUT /vms/:id/network-adapters — declarative reconciliation (hot-add/hot-remove allowed)
+    #
+    $route = Add-PodeRoute -Method Put -Path '/vms/:id/network-adapters' -ScriptBlock {
+        try {
+            $idRaw = $WebEvent.Parameters['id']
+            try { $id = [Guid]$idRaw }
+            catch {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid VM id (expected GUID)" }
+                return
+            }
+
+            $body = Get-HvoJsonBody
+            if ($null -eq $body) {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Invalid JSON" }
+                return
+            }
+            $adapters = @($body)
+            if ($adapters.Count -eq 1 -and $null -eq $adapters[0]) {
+                $adapters = @()
+            }
+
+            $result = Set-HvoVmNetworkAdapters -Id $id -NetworkAdapters $adapters
+
+            if ($result.Error -eq "VM not found") {
+                Write-PodeJsonResponse -StatusCode 404 -Value $result
+                return
+            }
+
+            if ($result.Updated -eq $false -and $result.Unchanged) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    unchanged = $true
+                    id        = "$id"
+                    name      = $result.Name
+                }
+                return
+            }
+
+            if ($result.Updated -eq $true) {
+                Write-PodeJsonResponse -StatusCode 200 -Value @{
+                    updated = $true
+                    id      = "$id"
+                    name    = $result.Name
+                }
+                return
+            }
+
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update network adapters"
+                detail = if ($result.Error) { $result.Error } else { "Unknown error" }
+            }
+        }
+        catch {
+            $msg = $_.Exception.Message
+            if ($msg -match "name.*switchName|Duplicate network adapter") {
+                Write-PodeJsonResponse -StatusCode 400 -Value @{ error = $msg }
+                return
+            }
+            Write-PodeJsonResponse -StatusCode 500 -Value @{
+                error  = "Failed to update network adapters"
+                detail = $msg
+            }
+        }
+    } -PassThru
+
+    $route | Set-PodeOARouteInfo -Summary 'Reconcile VM network adapters' -Description 'Declarative update of network adapters for a VM. Body is an array of { name, switchName }. Adapters not in the list are removed; empty array removes all. VM may be running (hot-add/hot-remove).' -Tags @('VMs')
+    $route | Set-PodeOARequest -Parameters @(
+        (New-PodeOAStringProperty -Name 'id' -Required | ConvertTo-PodeOAParameter -In Path)
+    )
+    $route | Add-PodeOAResponse -StatusCode 200 -Description 'Adapters updated or unchanged' -ContentSchemas @{
+        'application/json' = (New-PodeOAObjectProperty -Properties @(
+            (New-PodeOABoolProperty -Name 'updated'),
+            (New-PodeOABoolProperty -Name 'unchanged'),
+            (New-PodeOAStringProperty -Name 'id'),
+            (New-PodeOAStringProperty -Name 'name')
+        ))
+    }
+    $route | Add-PodeOAResponse -StatusCode 400 -Description 'Invalid JSON or adapter list' -ContentSchemas @{ 'application/json' = 'ErrorSchema' }
+    $route | Add-PodeOAResponse -StatusCode 404 -Description 'VM not found' -ContentSchemas @{ 'application/json' = 'ErrorSchema' }
+    $route | Add-PodeOAResponse -StatusCode 500 -Description 'Failed to update network adapters' -ContentSchemas @{ 'application/json' = 'ErrorSchema' }
 
     #
     # DELETE /vms/:id

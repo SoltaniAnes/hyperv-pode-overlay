@@ -50,9 +50,25 @@ function Set-HvoSwitch {
         }
 
         $swName = $sw.Name
+        $changed = $false
 
         if ($PSBoundParameters.ContainsKey("Notes")) {
-            Set-VMSwitch -Name $swName -Notes $Notes -ErrorAction Stop
+            $currentNotes = $sw.Notes
+            if ($null -eq $currentNotes) { $currentNotes = "" }
+            if ($null -eq $Notes) { $Notes = "" }
+            if ([string]$currentNotes -ne [string]$Notes) {
+                Set-VMSwitch -Name $swName -Notes $Notes -ErrorAction Stop
+                $changed = $true
+            }
+        }
+
+        if (-not $changed) {
+            return @{
+                Updated   = $false
+                Unchanged = $true
+                Name      = $swName
+                Id        = $sw.Id.ToString()
+            }
         }
 
         return @{

@@ -248,69 +248,12 @@
         }
       },
       "post": {
-        "tags": [
-          "VMs"
-        ],
-        "summary": "Create a new virtual machine",
-        "description": "Creates a new virtual machine. Each call creates a new resource and returns 201 with id (GUID). Names may be duplicated.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VmCreateSchema"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "OK"
           },
           "default": {
             "description": "Internal server error"
-          },
-          "201": {
-            "description": "VM created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "created": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "created",
-                    "id"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to create VM",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
           }
         }
       }
@@ -324,12 +267,12 @@
         "description": "Returns detailed information about a specific virtual machine by its GUID",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -373,26 +316,36 @@
           "VMs"
         ],
         "summary": "Update a virtual machine",
-        "description": "Updates configuration of an existing virtual machine by Id. VM must be stopped.",
+        "description": "Declaratively update VM configuration (memory, vCPU, ISO). VM must be stopped. Network adapters are managed via PUT /vms/:id/network-adapters.",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VmUpdateSchema"
+                "type": "object",
+                "properties": {
+                  "memoryMB": {
+                    "type": "integer"
+                  },
+                  "vcpu": {
+                    "type": "integer"
+                  },
+                  "isoPath": {
+                    "type": "string"
+                  }
+                }
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -408,6 +361,9 @@
                     "unchanged": {
                       "type": "boolean"
                     },
+                    "id": {
+                      "type": "string"
+                    },
                     "name": {
                       "type": "string"
                     }
@@ -420,7 +376,7 @@
             "description": "Internal server error"
           },
           "400": {
-            "description": "Invalid JSON",
+            "description": "Invalid JSON or invalid GUID format",
             "content": {
               "application/json": {
                 "schema": {
@@ -440,7 +396,7 @@
             }
           },
           "409": {
-            "description": "Update conflict (e.g., VM is running)",
+            "description": "Update conflict (e.g., VM is running, invalid state)",
             "content": {
               "application/json": {
                 "schema": {
@@ -469,12 +425,12 @@
         "description": "Deletes a virtual machine by Id and its associated virtual hard disks",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -531,12 +487,12 @@
         "description": "Returns an array of virtual machines matching the given name (may be 0, 1 or more)",
         "parameters": [
           {
+            "name": "name",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "name"
+            }
           }
         ],
         "responses": {
@@ -597,6 +553,248 @@
         }
       }
     },
+    "/vms/{id}/network-adapters": {
+      "get": {
+        "tags": [
+          "VMs"
+        ],
+        "summary": "List network adapters of a virtual machine",
+        "description": "Returns a list of all network adapters for a VM by Id (each adapter includes Id)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of network adapters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "Id": {
+                        "type": "string"
+                      },
+                      "Name": {
+                        "type": "string"
+                      },
+                      "SwitchName": {
+                        "type": "string"
+                      },
+                      "Type": {
+                        "type": "string"
+                      },
+                      "MacAddress": {
+                        "type": "string"
+                      },
+                      "Status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "Name",
+                      "Type",
+                      "MacAddress"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Internal server error"
+          },
+          "404": {
+            "description": "VM not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to list network adapters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "VMs"
+        ],
+        "summary": "Add a network adapter to a VM",
+        "description": "Adds a network adapter to a virtual machine by Id. Returns 201 with adapter id.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "switchName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "switchName"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "default": {
+            "description": "Internal server error"
+          },
+          "201": {
+            "description": "Adapter created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "VM not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to add adapter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "VMs"
+        ],
+        "summary": "Reconcile VM network adapters",
+        "description": "Declarative update of network adapters for a VM. Body is an array of { name, switchName }. Adapters not in the list are removed; empty array removes all. VM may be running (hot-add/hot-remove).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adapters updated or unchanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "updated": {
+                      "type": "boolean"
+                    },
+                    "unchanged": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Internal server error"
+          },
+          "400": {
+            "description": "Invalid JSON or adapter list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "VM not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update network adapters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vms/{id}/start": {
       "post": {
         "tags": [
@@ -606,12 +804,12 @@
         "description": "Starts a virtual machine by Id. If the VM is paused, it will be resumed",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -668,19 +866,19 @@
         "description": "Stops a virtual machine by Id. Use force=true query or body to force shutdown",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           },
           {
+            "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
-            },
-            "in": "query",
-            "name": "force"
+            }
           }
         ],
         "requestBody": {
@@ -771,19 +969,19 @@
         "description": "Restarts a virtual machine by Id. Use force=true query or body to force shutdown before restart",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           },
           {
+            "name": "force",
+            "in": "query",
             "schema": {
               "type": "boolean"
-            },
-            "in": "query",
-            "name": "force"
+            }
           }
         ],
         "requestBody": {
@@ -864,12 +1062,12 @@
         "description": "Suspends (pauses) a running virtual machine by Id",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -936,12 +1134,12 @@
         "description": "Resumes a suspended virtual machine by Id",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -999,172 +1197,6 @@
         }
       }
     },
-    "/vms/{id}/network-adapters": {
-      "get": {
-        "tags": [
-          "VMs"
-        ],
-        "summary": "List network adapters of a virtual machine",
-        "description": "Returns a list of all network adapters for a VM by Id (each adapter includes Id)",
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of network adapters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "Id": {
-                        "type": "string"
-                      },
-                      "Name": {
-                        "type": "string"
-                      },
-                      "SwitchName": {
-                        "type": "string"
-                      },
-                      "Type": {
-                        "type": "string"
-                      },
-                      "MacAddress": {
-                        "type": "string"
-                      },
-                      "Status": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "Name",
-                      "Type",
-                      "MacAddress"
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Internal server error"
-          },
-          "404": {
-            "description": "VM not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to list network adapters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "VMs"
-        ],
-        "summary": "Add a network adapter to a VM",
-        "description": "Adds a network adapter to a virtual machine by Id. Returns 201 with adapter id.",
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "switchName": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "switchName"
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "default": {
-            "description": "Internal server error"
-          },
-          "201": {
-            "description": "Adapter created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "created": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "id"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "VM not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to add adapter",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorSchema"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/vms/{id}/network-adapters/{adapterId}": {
       "delete": {
         "tags": [
@@ -1174,20 +1206,20 @@
         "description": "Removes a network adapter by adapter Id from a VM by Id",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           },
           {
+            "name": "adapterId",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "adapterId"
+            }
           }
         ],
         "responses": {
@@ -1372,12 +1404,12 @@
         "description": "Returns detailed information about a specific virtual switch by its GUID",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -1424,12 +1456,12 @@
         "description": "Updates the notes field of an existing virtual switch by Id",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "requestBody": {
@@ -1444,19 +1476,25 @@
         },
         "responses": {
           "200": {
-            "description": "Switch updated successfully",
+            "description": "Switch updated or unchanged",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "updated": {
+                      "type": "boolean"
+                    },
+                    "unchanged": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "updated"
-                  ]
+                  }
                 }
               }
             }
@@ -1504,12 +1542,12 @@
         "description": "Deletes a virtual switch by Id",
         "parameters": [
           {
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "id"
+            }
           }
         ],
         "responses": {
@@ -1566,12 +1604,12 @@
         "description": "Returns an array of virtual switches matching the given name",
         "parameters": [
           {
+            "name": "name",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "in": "path",
-            "name": "name"
+            }
           }
         ],
         "responses": {
@@ -1737,9 +1775,6 @@
           },
           "vcpu": {
             "type": "integer"
-          },
-          "switchName": {
-            "type": "string"
           },
           "isoPath": {
             "type": "string"
